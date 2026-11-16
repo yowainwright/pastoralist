@@ -1,5 +1,4 @@
 import type { SecurityAlert } from "../../../src/types";
-
 export const mockSnykAlerts: SecurityAlert[] = [
   {
     package: "express",
@@ -11,24 +10,27 @@ export const mockSnykAlerts: SecurityAlert[] = [
     fixedVersion: "4.17.3",
   },
 ];
-
+const vulnerabilities = mockSnykAlerts.map((alert) => {
+  const {
+    package: packageName,
+    version,
+    severity,
+    cve: id,
+    title,
+    description,
+    fixedVersion,
+  } = alert;
+  const fixedIn = [fixedVersion];
+  const vulnerability = { packageName, version, severity, id, title, description, fixedIn };
+  return vulnerability;
+});
 export const mockSnykResponse = {
-  vulnerabilities: mockSnykAlerts.map((alert) => ({
-    packageName: alert.package,
-    version: alert.version,
-    severity: alert.severity,
-    id: alert.cve,
-    title: alert.title,
-    description: alert.description,
-    fixedIn: [alert.fixedVersion],
-  })),
+  vulnerabilities: vulnerabilities,
 };
-
 export class MockSnykProvider {
   async checkSecurity(): Promise<SecurityAlert[]> {
     return mockSnykAlerts;
   }
-
   isAvailable(): boolean {
     return false;
   }

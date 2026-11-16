@@ -8,25 +8,38 @@ import {
   resolveDepPaths,
   writeResult,
 } from "../../../../src/core/update/utils";
-import type { Options, PastoralistJSON, WriteResultContext } from "../../../../src/types";
+import type {
+  Options,
+  PastoralistConfig,
+  PastoralistJSON,
+  WriteResultContext,
+} from "../../../../src/types";
+
+const createWriteDefaults = () => {
+  const finalOverrides = {};
+  const options = { dryRun: false };
+  const defaults = { finalOverrides, options, isTesting: false };
+  return defaults;
+};
 
 const createExternalAppendixFixture = () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-write-result-"));
   const path = join(root, "package.json");
   const appendixPath = join(root, "ledger.json");
-  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+  const dependents = { app: "lodash@^4" };
+  const lodash41721 = { dependents };
+  const appendix = { "lodash@4.17.21": lodash41721 };
   const config = { name: "test", version: "1.0.0" };
   writeFileSync(path, JSON.stringify(config));
-  const ctx: WriteResultContext = {
-    appendixTarget: { path: appendixPath },
+  const appendixTarget = { path: appendixPath };
+  const ctx: WriteResultContext = Object.assign(createWriteDefaults(), {
+    appendixTarget,
     path,
     config,
     finalAppendix: appendix,
-    finalOverrides: {},
-    options: { dryRun: false },
-    isTesting: false,
-  };
-  return { appendix, appendixPath, ctx, root };
+  });
+  const result = { appendix, appendixPath, ctx, root };
+  return result;
 };
 
 test("determineProcessingMode - should return root mode when no depPaths", () => {
@@ -40,7 +53,8 @@ test("determineProcessingMode - should return root mode when no depPaths", () =>
 });
 
 test("determineProcessingMode - should return workspace mode with options depPaths", () => {
-  const options: Options = { depPaths: ["packages/*/package.json"] };
+  const depPaths = ["packages/*/package.json"];
+  const options: Options = { depPaths };
   const config: PastoralistJSON = { name: "test", version: "1.0.0" };
 
   const result = determineProcessingMode(options, config, true, []);
@@ -51,11 +65,9 @@ test("determineProcessingMode - should return workspace mode with options depPat
 
 test("determineProcessingMode - should return workspace mode with config depPaths", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: { depPaths: ["apps/*/package.json"] },
-  };
+  const depPaths = ["apps/*/package.json"];
+  const pastoralist = { depPaths };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", pastoralist };
 
   const result = determineProcessingMode(options, config, false, []);
 
@@ -83,12 +95,11 @@ test("determineProcessingMode - should include missingInRoot in result", () => {
 });
 
 test("resolveDepPaths - should return options depPaths when provided", () => {
-  const options: Options = { depPaths: ["custom/path"] };
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: { depPaths: ["other/path"] },
-  };
+  const depPaths = ["custom/path"];
+  const options: Options = { depPaths };
+  const depPaths2 = ["other/path"];
+  const pastoralist = { depPaths: depPaths2 };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -97,12 +108,9 @@ test("resolveDepPaths - should return options depPaths when provided", () => {
 
 test("resolveDepPaths - should resolve workspace string to workspaces array", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: ["packages/*", "apps/*"],
-    pastoralist: { depPaths: "workspace" },
-  };
+  const workspaces = ["packages/*", "apps/*"];
+  const pastoralist: PastoralistConfig = { depPaths: "workspace" };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", workspaces, pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -111,12 +119,9 @@ test("resolveDepPaths - should resolve workspace string to workspaces array", ()
 
 test("resolveDepPaths - should handle workspaces string variant", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: { depPaths: "workspaces" },
-  };
+  const workspaces = ["packages/*"];
+  const pastoralist: PastoralistConfig = { depPaths: "workspaces" };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", workspaces, pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -125,12 +130,10 @@ test("resolveDepPaths - should handle workspaces string variant", () => {
 
 test("resolveDepPaths - should resolve package.json workspaces object", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: { packages: ["packages/*", "apps/*"] },
-    pastoralist: { depPaths: "workspace" },
-  };
+  const packages = ["packages/*", "apps/*"];
+  const workspaces = { packages };
+  const pastoralist: PastoralistConfig = { depPaths: "workspace" };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", workspaces, pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -151,11 +154,8 @@ packages:
     );
 
     const options: Options = { root };
-    const config: PastoralistJSON = {
-      name: "test",
-      version: "1.0.0",
-      pastoralist: { depPaths: "workspace" },
-    };
+    const pastoralist: PastoralistConfig = { depPaths: "workspace" };
+    const config: PastoralistJSON = { name: "test", version: "1.0.0", pastoralist };
 
     const result = resolveDepPaths(options, config);
 
@@ -167,13 +167,9 @@ packages:
 
 test("resolveDepPaths - should return array depPaths as-is", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/a/package.json", "packages/b/package.json"],
-    },
-  };
+  const depPaths = ["packages/a/package.json", "packages/b/package.json"];
+  const pastoralist = { depPaths };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -182,11 +178,8 @@ test("resolveDepPaths - should return array depPaths as-is", () => {
 
 test("resolveDepPaths - should return null when workspace mode but no workspaces", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: { depPaths: "workspace" },
-  };
+  const pastoralist: PastoralistConfig = { depPaths: "workspace" };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", pastoralist };
 
   const result = resolveDepPaths(options, config);
 
@@ -195,11 +188,8 @@ test("resolveDepPaths - should return null when workspace mode but no workspaces
 
 test("resolveDepPaths - should auto-detect workspaces when no depPaths", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: ["packages/*"],
-  };
+  const workspaces = ["packages/*"];
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", workspaces };
 
   const result = resolveDepPaths(options, config);
 
@@ -219,10 +209,7 @@ packages:
     );
 
     const options: Options = { root };
-    const config: PastoralistJSON = {
-      name: "test",
-      version: "1.0.0",
-    };
+    const config: PastoralistJSON = { name: "test", version: "1.0.0" };
 
     const result = resolveDepPaths(options, config);
 
@@ -234,10 +221,7 @@ packages:
 
 test("resolveDepPaths - should return null when no workspaces or depPaths", () => {
   const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-  };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
 
   const result = resolveDepPaths(options, config);
 
@@ -245,12 +229,16 @@ test("resolveDepPaths - should return null when no workspaces or depPaths", () =
 });
 
 test("writeResult - should write result with dry run false", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
+  const options = { dryRun: false };
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
-    options: { dryRun: false },
+    config,
+    finalOverrides,
+    options,
     isTesting: true,
   };
 
@@ -259,12 +247,16 @@ test("writeResult - should write result with dry run false", () => {
 });
 
 test("writeResult - should write result with dry run true", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
+  const options = { dryRun: true };
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
-    options: { dryRun: true },
+    config,
+    finalOverrides,
+    options,
     isTesting: true,
   };
 
@@ -273,11 +265,14 @@ test("writeResult - should write result with dry run true", () => {
 });
 
 test("writeResult - should write result with no options", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
+    config,
+    finalOverrides,
     options: undefined,
     isTesting: true,
   };
@@ -296,12 +291,16 @@ test("writeResult - writes an external appendix target", () => {
 });
 
 test("writeResult - should write result with dry run false", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
+  const options = { dryRun: false };
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
-    options: { dryRun: false },
+    config,
+    finalOverrides,
+    options,
     isTesting: true,
   };
 
@@ -310,12 +309,16 @@ test("writeResult - should write result with dry run false", () => {
 });
 
 test("writeResult - should write result with dry run true", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
+  const options = { dryRun: true };
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
-    options: { dryRun: true },
+    config,
+    finalOverrides,
+    options,
     isTesting: true,
   };
 
@@ -324,11 +327,14 @@ test("writeResult - should write result with dry run true", () => {
 });
 
 test("writeResult - should write result with no options", () => {
+  const finalAppendix = {};
+  const config = { name: "test" };
+  const finalOverrides = {};
   const ctx: WriteResultContext = {
-    finalAppendix: {},
+    finalAppendix,
     path: "package.json",
-    config: { name: "test" },
-    finalOverrides: {},
+    config,
+    finalOverrides,
     options: undefined,
     isTesting: true,
   };

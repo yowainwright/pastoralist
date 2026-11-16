@@ -64,7 +64,7 @@
     "lint": "pnpm run lint:paths && pnpm run lint:js && pnpm run lint:shell",
     "lint:paths": "sh scripts/lint/paths.sh",
     "lint:js": "sh scripts/turbo.sh lint:js:check",
-    "lint:js:check": "oxlint --disable-nested-config --max-warnings 0 --report-unused-disable-directives-severity error -c .oxlintrc.json src app scripts tests/unit/scripts",
+    "lint:js:check": "oxlint --disable-nested-config --max-warnings 0 --report-unused-disable-directives-severity error -c .oxlintrc.json src app scripts tests",
     "lint:shell": "sh scripts/lint/shell-cache.sh",
     "lint:shell:check": "sh scripts/lint/shell.sh",
     "lint/session": "lint-changed --comments=forbid",

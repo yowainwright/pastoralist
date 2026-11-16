@@ -83,7 +83,6 @@ test("buildConfig - should build empty config when nothing is setup", () => {
     setupWorkspaces: false,
     setupSecurity: false,
   };
-
   const result = buildConfig(answers);
   assert.deepStrictEqual(result, {});
 });
@@ -95,7 +94,6 @@ test("buildConfig - should build config with workspace mode", () => {
     workspaceType: "workspace",
     setupSecurity: false,
   };
-
   const result = buildConfig(answers);
   assert.deepStrictEqual(result, {
     depPaths: "workspace",
@@ -103,34 +101,35 @@ test("buildConfig - should build config with workspace mode", () => {
 });
 
 test("buildConfig - should build config with custom workspace paths", () => {
+  const customWorkspacePaths = ["packages/*", "apps/*"];
   const answers: InitAnswers = {
     configLocation: "package.json",
     setupWorkspaces: true,
     workspaceType: "custom",
-    customWorkspacePaths: ["packages/*", "apps/*"],
+    customWorkspacePaths,
     setupSecurity: false,
   };
-
   const result = buildConfig(answers);
+  const depPaths = ["packages/*", "apps/*"];
   assert.deepStrictEqual(result, {
-    depPaths: ["packages/*", "apps/*"],
+    depPaths,
   });
 });
 
 test("buildConfig - should not set depPaths for custom type with no paths", () => {
+  const customWorkspacePaths: string[] = [];
   const answers: InitAnswers = {
     configLocation: "package.json",
     setupWorkspaces: true,
     workspaceType: "custom",
-    customWorkspacePaths: [],
+    customWorkspacePaths,
     setupSecurity: false,
   };
-
   const result = buildConfig(answers);
   assert.deepStrictEqual(result, {});
 });
 
-test("buildConfig - should build config with security enabled", () => {
+const createSecurityAnswers = (): InitAnswers => {
   const answers: InitAnswers = {
     configLocation: "package.json",
     setupWorkspaces: false,
@@ -141,18 +140,22 @@ test("buildConfig - should build config with security enabled", () => {
     severityThreshold: "medium",
     hasWorkspaceSecurityChecks: false,
   };
+  return answers;
+};
 
-  const result = buildConfig(answers);
+test("buildConfig - should build config with security enabled", () => {
+  const result = buildConfig(createSecurityAnswers());
+  const security = {
+    enabled: true,
+    provider: "osv",
+    interactive: true,
+    autoFix: false,
+    severityThreshold: "medium",
+    hasWorkspaceSecurityChecks: false,
+  };
   assert.deepStrictEqual(result, {
     checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "osv",
-      interactive: true,
-      autoFix: false,
-      severityThreshold: "medium",
-      hasWorkspaceSecurityChecks: false,
-    },
+    security,
   });
 });
 
@@ -166,17 +169,17 @@ test("buildConfig - should not write security token when provided", () => {
     securityInteractive: false,
     securityAutoFix: true,
   };
-
   const result = buildConfig(answers);
   assert.strictEqual(result.security?.securityProviderToken, undefined);
 });
 
-test("buildConfig - should build complete config with all options", () => {
+const createCompleteAnswers = (): InitAnswers => {
+  const customWorkspacePaths = ["packages/*"];
   const answers: InitAnswers = {
     configLocation: "package.json",
     setupWorkspaces: true,
     workspaceType: "custom",
-    customWorkspacePaths: ["packages/*"],
+    customWorkspacePaths,
     setupSecurity: true,
     securityProvider: "github",
     securityInteractive: true,
@@ -184,77 +187,90 @@ test("buildConfig - should build complete config with all options", () => {
     severityThreshold: "high",
     hasWorkspaceSecurityChecks: true,
   };
+  return answers;
+};
 
-  const result = buildConfig(answers);
+test("buildConfig - should build complete config with all options", () => {
+  const result = buildConfig(createCompleteAnswers());
+  const depPaths = ["packages/*"];
+  const security = {
+    enabled: true,
+    provider: "github",
+    interactive: true,
+    autoFix: false,
+    severityThreshold: "high",
+    hasWorkspaceSecurityChecks: true,
+  };
   assert.deepStrictEqual(result, {
-    depPaths: ["packages/*"],
+    depPaths,
     checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "github",
-      interactive: true,
-      autoFix: false,
-      severityThreshold: "high",
-      hasWorkspaceSecurityChecks: true,
-    },
+    security,
   });
 });
 
 test("generateConfigContent - should generate JSON config", () => {
-  const mockConfig = {
-    depPaths: "workspace" as const,
-    checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "osv" as const,
-    },
+  const depPaths = "workspace" as const;
+  const provider = "osv" as const;
+  const security = {
+    enabled: true,
+    provider,
   };
-
+  const mockConfig = {
+    depPaths,
+    checkSecurity: true,
+    security,
+  };
   const result = generateConfigContent(mockConfig, ".pastoralistrc.json");
   const expected = JSON.stringify(mockConfig, null, 2) + "\n";
   assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate JS module config", () => {
-  const mockConfig = {
-    depPaths: "workspace" as const,
-    checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "osv" as const,
-    },
+  const depPaths = "workspace" as const;
+  const provider = "osv" as const;
+  const security = {
+    enabled: true,
+    provider,
   };
-
+  const mockConfig = {
+    depPaths,
+    checkSecurity: true,
+    security,
+  };
   const result = generateConfigContent(mockConfig, "pastoralist.config.js");
   const expected = `module.exports = ${JSON.stringify(mockConfig, null, 2)};\n`;
   assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate CommonJS module config", () => {
-  const mockConfig = {
-    depPaths: "workspace" as const,
-    checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "osv" as const,
-    },
+  const depPaths = "workspace" as const;
+  const provider = "osv" as const;
+  const security = {
+    enabled: true,
+    provider,
   };
-
+  const mockConfig = {
+    depPaths,
+    checkSecurity: true,
+    security,
+  };
   const result = generateConfigContent(mockConfig, "pastoralist.config.cjs");
   const expected = `module.exports = ${JSON.stringify(mockConfig, null, 2)};\n`;
   assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate ESM module config", () => {
-  const mockConfig = {
-    depPaths: "workspace" as const,
-    checkSecurity: true,
-    security: {
-      enabled: true,
-      provider: "osv" as const,
-    },
+  const depPaths = "workspace" as const;
+  const provider = "osv" as const;
+  const security = {
+    enabled: true,
+    provider,
   };
-
+  const mockConfig = {
+    depPaths,
+    checkSecurity: true,
+    security,
+  };
   const result = generateConfigContent(mockConfig, "pastoralist.config.mjs");
   const expected = `export default ${JSON.stringify(mockConfig, null, 2)};\n`;
   assert.strictEqual(result, expected);
@@ -268,7 +284,6 @@ test("generateConfigContent - should handle empty config", () => {
 
 test("buildOnboardingText includes human usage", () => {
   const text = buildOnboardingText();
-
   assert.match(text, /Pastoralist onboarding/);
   assert.match(text, /Human quick start/);
   assert.match(text, /npx pastoralist doctor/);
@@ -278,7 +293,6 @@ test("buildOnboardingText includes human usage", () => {
 
 test("buildOnboardingText installs the skill without maintainer-only scripts", () => {
   const text = buildOnboardingText();
-
   assert.match(text, /Agent quick setup/);
   assert.match(text, /npx pastoralist --init agent-skill/);
   assert.match(text, /npx pastoralist --init agent-skill --dry-run/);
@@ -288,7 +302,6 @@ test("buildOnboardingText installs the skill without maintainer-only scripts", (
 
 test("buildOnboardingText includes agent prompts", () => {
   const text = buildOnboardingText();
-
   assert.match(text, /Prompt for a setup agent/);
   assert.match(text, /Set up Pastoralist in this repository\./);
   assert.match(text, /Prompt for a maintenance agent/);
@@ -297,7 +310,6 @@ test("buildOnboardingText includes agent prompts", () => {
 
 test("buildOnboardingText includes the agent loop", () => {
   const text = buildOnboardingText();
-
   assert.match(text, /Agent setup loop/);
   assert.match(text, /Apply the smallest needed setup command\./);
   assert.match(text, /Report changed files and remaining manual steps\./);
@@ -305,7 +317,6 @@ test("buildOnboardingText includes the agent loop", () => {
 
 test("buildOnboardingText includes GitHub Action setup", () => {
   const text = buildOnboardingText();
-
   assert.match(text, /GitHub Action setup/);
   assert.match(text, /\.github\/workflows\/pastoralist\.yml/);
   assert.match(text, /uses: yowainwright\/pastoralist@v1/);

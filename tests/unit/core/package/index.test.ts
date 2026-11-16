@@ -2154,11 +2154,13 @@ test("parseYarnLockGraph - returns undefined when lockfile cannot be read", () =
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+const dependencies8 = { parent: "1.0.0" };
+const scripts = { postinstall: "node project-hook.js" };
 const projectConfig: PastoralistJSON = {
   name: "removal-project",
   version: "1.0.0",
-  dependencies: { parent: "1.0.0" },
-  scripts: { postinstall: "node project-hook.js" },
+  dependencies: dependencies8,
+  scripts,
 };
 
 const resolvePackageManagerCommand = () => ({ stdout: "", stderr: "" });
@@ -2177,57 +2179,75 @@ const commandCases = [
   { lockfile: "bun.lock", command: "bun", expectedFlag: "--lockfile-only" },
 ];
 
-commandCases.forEach(({ lockfile, command, expectedFlag }) => {
-  test(`removal state - resolves ${command} lockfile`, async () => {
-    const root = createRemovalProject(lockfile);
-    if (command === "yarn") writeFileSync(join(root, ".yarnrc.yml"), "nodeLinker: node-modules\n");
-    let stagedRoot = "";
-    const execFile = mock(resolvePackageManagerCommand);
-
-    try {
-      const inspectedName = await withRemovalState(
-        projectConfig,
-        { path: join(root, "package.json") },
-        (removalRoot) => {
-          stagedRoot = removalRoot;
-          assert.strictEqual(existsSync(join(removalRoot, lockfile)), true);
-          const manifest = JSON.parse(safeReadFileSync(join(removalRoot, "package.json"), "utf8"));
-          assert.strictEqual(manifest.scripts, undefined);
-          if (command === "yarn") {
-            assert.strictEqual(existsSync(join(removalRoot, ".yarnrc.yml")), true);
-          }
-          return manifest.name;
-        },
-        { execFile: execFile as any },
-      );
-      const call = execFile.mock.calls.map((item) =>
-        Array.isArray(item) ? item : item.arguments,
-      )[0];
-      assert.strictEqual(inspectedName, "removal-project");
-      assert.strictEqual(call[0], command);
-      assert.strictEqual(call[1].includes(expectedFlag), true);
-      assert.strictEqual(call[2].cwd, stagedRoot);
-      if (command === "yarn") {
-        assert.strictEqual(call[2].env.YARN_ENABLE_SCRIPTS, "false");
-        assert.strictEqual(call[2].env.YARN_IGNORE_PATH, "true");
-        assert.strictEqual(call[2].env.YARN_PLUGINS, "");
-      }
-      assert.strictEqual(existsSync(stagedRoot), false);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
+type RemovalCommandCase = (typeof commandCases)[number];
+const inspectRemovalProject = (
+  removalRoot: string,
+  scenario: RemovalCommandCase,
+  state: { stagedRoot: string },
+) => {
+  state.stagedRoot = removalRoot;
+  assert.strictEqual(existsSync(join(removalRoot, scenario.lockfile)), true);
+  const manifest = JSON.parse(safeReadFileSync(join(removalRoot, "package.json"), "utf8"));
+  assert.strictEqual(manifest.scripts, undefined);
+  if (scenario.command === "yarn")
+    assert.strictEqual(existsSync(join(removalRoot, ".yarnrc.yml")), true);
+  const { name } = manifest;
+  return name;
+};
+const assertRemovalCommand = (call: any[], scenario: RemovalCommandCase, stagedRoot: string) => {
+  assert.strictEqual(call[0], scenario.command);
+  assert.strictEqual(call[1].includes(scenario.expectedFlag), true);
+  assert.strictEqual(call[2].cwd, stagedRoot);
+  if (scenario.command !== "yarn") return;
+  assert.strictEqual(call[2].env.YARN_ENABLE_SCRIPTS, "false");
+  assert.strictEqual(call[2].env.YARN_IGNORE_PATH, "true");
+  assert.strictEqual(call[2].env.YARN_PLUGINS, "");
+};
+const createRemovalCommandFixture = ({ lockfile, command }: RemovalCommandCase) => {
+  const root = createRemovalProject(lockfile);
+  if (command === "yarn") writeFileSync(join(root, ".yarnrc.yml"), "nodeLinker: node-modules\n");
+  const execFile = mock(resolvePackageManagerCommand);
+  const path = join(root, "package.json");
+  const context = { path };
+  const executor = execFile as any;
+  const dependencies = { execFile: executor };
+  const state = { stagedRoot: "" };
+  const fixture = { root, execFile, context, dependencies, state };
+  return fixture;
+};
+const verifyRemovalCommand = async (scenario: RemovalCommandCase) => {
+  const { root, execFile, context, dependencies, state } = createRemovalCommandFixture(scenario);
+  try {
+    const inspectedName = await withRemovalState(
+      projectConfig,
+      context,
+      (removalRoot) => inspectRemovalProject(removalRoot, scenario, state),
+      dependencies,
+    );
+    const call = execFile.mock.calls.map((item) =>
+      Array.isArray(item) ? item : item.arguments,
+    )[0];
+    assert.strictEqual(inspectedName, "removal-project");
+    assertRemovalCommand(call, scenario, state.stagedRoot);
+    assert.strictEqual(existsSync(state.stagedRoot), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+};
+commandCases.forEach((scenario) => {
+  test("removal state - resolves " + scenario.command + " lockfile", () =>
+    verifyRemovalCommand(scenario),
+  );
 });
-
 test("removal state - fails closed without a lockfile", async () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-removal-no-lock-"));
   const execFile = mock(resolvePackageManagerCommand);
 
   try {
+    const path = join(root, "package.json");
+    const executor = execFile as any;
     await assert.rejects(
-      withRemovalState(projectConfig, { path: join(root, "package.json") }, () => undefined, {
-        execFile: execFile as any,
-      }),
+      withRemovalState(projectConfig, { path }, () => undefined, { execFile: executor }),
       /No npm lockfile is available/,
     );
     assert.strictEqual(execFile.mock.callCount(), 0);
@@ -2236,55 +2256,60 @@ test("removal state - fails closed without a lockfile", async () => {
   }
 });
 
+const assertStagedPnpmOverrides = (removalRoot: string) => {
+  const workspace = safeReadFileSync(join(removalRoot, "pnpm-workspace.yaml"), "utf8");
+  assert.match(workspace, /"kept": "2.0.0"/);
+  assert.doesNotMatch(workspace, /removed:/);
+  return undefined;
+};
+
 test("removal state - updates staged pnpm overrides", async () => {
   const root = createRemovalProject("pnpm-lock.yaml");
   writeFileSync(join(root, "pnpm-workspace.yaml"), "packages: []\noverrides:\n  removed: 1.0.0\n");
-  const config = Object.assign({}, projectConfig, {
-    pnpm: { overrides: { kept: "2.0.0" } },
-  });
+  const overrides = { kept: "2.0.0" };
+  const pnpmConfig = { overrides };
+  const config = Object.assign({}, projectConfig, { pnpm: pnpmConfig });
   const execFile = mock(resolvePackageManagerCommand);
 
   try {
-    await withRemovalState(
-      config,
-      { path: join(root, "package.json") },
-      (removalRoot) => {
-        const workspace = safeReadFileSync(join(removalRoot, "pnpm-workspace.yaml"), "utf8");
-        assert.match(workspace, /"kept": "2.0.0"/);
-        assert.doesNotMatch(workspace, /removed:/);
-        return undefined;
-      },
-      { execFile: execFile as any },
-    );
+    const path = join(root, "package.json");
+    const executor = execFile as any;
+    await withRemovalState(config, { path }, assertStagedPnpmOverrides, { execFile: executor });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("removal state - stages declarative pnpm resolver inputs", async () => {
+const assertStagedResolverInputs = (removalRoot: string, patchPath: string) => {
+  assert.strictEqual(existsSync(join(removalRoot, ".npmrc")), true);
+  assert.strictEqual(safeReadFileSync(join(removalRoot, patchPath), "utf8"), "patch contents");
+  return undefined;
+};
+
+const createResolverInputsFixture = () => {
   const root = createRemovalProject("pnpm-lock.yaml");
   const patchPath = join("patches", "dependency.patch");
   mkdirSync(join(root, "patches"), { recursive: true });
   writeFileSync(join(root, ".npmrc"), "strict-peer-dependencies=true\n");
   writeFileSync(join(root, patchPath), "patch contents");
   const execFile = mock(resolvePackageManagerCommand);
+  const fixture = { root, patchPath, execFile };
+  return fixture;
+};
+
+test("removal state - stages declarative pnpm resolver inputs", async () => {
+  const { root, patchPath, execFile } = createResolverInputsFixture();
 
   try {
+    const path = join(root, "package.json");
+    const executor = execFile as any;
     await withRemovalState(
       projectConfig,
-      { path: join(root, "package.json") },
-      (removalRoot) => {
-        assert.strictEqual(existsSync(join(removalRoot, ".npmrc")), true);
-        assert.strictEqual(
-          safeReadFileSync(join(removalRoot, patchPath), "utf8"),
-          "patch contents",
-        );
-        return undefined;
-      },
-      { execFile: execFile as any },
+      { path },
+      (removalRoot) => assertStagedResolverInputs(removalRoot, patchPath),
+      { execFile: executor },
     );
-    const call = execFile.mock.calls[0].arguments;
-    assert.strictEqual(call[1].includes("--ignore-pnpmfile"), true);
+    assert.strictEqual(execFile.mock.calls[0].arguments[1].includes("--ignore-pnpmfile"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -2330,9 +2355,11 @@ executableResolverCases.forEach(({ name, lockfile, path, content }) => {
     const execFile = mock(resolvePackageManagerCommand);
 
     try {
+      const manifestPath = join(root, "package.json");
+      const executor = execFile as any;
       await assert.rejects(
-        withRemovalState(projectConfig, { path: join(root, "package.json") }, () => undefined, {
-          execFile: execFile as any,
+        withRemovalState(projectConfig, { path: manifestPath }, () => undefined, {
+          execFile: executor,
         }),
         errorIncludes(`Executable resolver config prevents safe verification: ${path}`),
       );
@@ -2343,32 +2370,39 @@ executableResolverCases.forEach(({ name, lockfile, path, content }) => {
   });
 });
 
-test("removal state - stages workspace manifests", async () => {
+const assertStagedWorkspaceManifest = (removalRoot: string) => {
+  const manifestPath = join(removalRoot, "packages", "app", "package.json");
+  assert.strictEqual(existsSync(manifestPath), true);
+  const manifest = JSON.parse(safeReadFileSync(manifestPath, "utf8"));
+  assert.strictEqual(manifest.scripts, undefined);
+  return undefined;
+};
+
+const createRemovalWorkspaceFixture = () => {
   const root = createRemovalProject("package-lock.json");
   const workspaceDir = join(root, "packages", "app");
   mkdirSync(workspaceDir, { recursive: true });
+  const workspaceScripts = { postinstall: "node project-hook.js" };
   const workspaceManifest = {
     name: "workspace-app",
     version: "1.0.0",
-    scripts: { postinstall: "node project-hook.js" },
+    scripts: workspaceScripts,
   };
   writeFileSync(join(workspaceDir, "package.json"), JSON.stringify(workspaceManifest));
-  const config = Object.assign({}, projectConfig, { workspaces: ["packages/*"] });
+  const workspaces = ["packages/*"];
+  const config = Object.assign({}, projectConfig, { workspaces });
   const execFile = mock(resolvePackageManagerCommand);
+  const fixture = { root, config, execFile };
+  return fixture;
+};
+
+test("removal state - stages workspace manifests", async () => {
+  const { root, config, execFile } = createRemovalWorkspaceFixture();
 
   try {
-    await withRemovalState(
-      config,
-      { path: join(root, "package.json") },
-      (removalRoot) => {
-        const manifestPath = join(removalRoot, "packages", "app", "package.json");
-        assert.strictEqual(existsSync(manifestPath), true);
-        const manifest = JSON.parse(safeReadFileSync(manifestPath, "utf8"));
-        assert.strictEqual(manifest.scripts, undefined);
-        return undefined;
-      },
-      { execFile: execFile as any },
-    );
+    const path = join(root, "package.json");
+    const executor = execFile as any;
+    await withRemovalState(config, { path }, assertStagedWorkspaceManifest, { execFile: executor });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -2431,8 +2465,9 @@ unsafeConfigs.forEach(([name, content]) => {
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const execFile = mock(async () => ({ stdout: "", stderr: "" }));
     const inspect = mock(() => undefined);
+    const execFile2 = execFile as any;
     await assert.rejects(
-      withRemovalState(config, { root }, inspect, { execFile: execFile as any }),
+      withRemovalState(config, { root }, inspect, { execFile: execFile2 }),
       /(?:Executable resolver config|Unsupported Yarn config syntax) prevents safe verification: \.yarnrc\.yml/,
     );
     assert.equal(execFile.mock.callCount(), 0);
@@ -2470,6 +2505,7 @@ safeConfigs.forEach((content, index) => {
     const root = createProject(content);
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+    const execFile2 = execFile as any;
     await withRemovalState(
       config,
       { root },
@@ -2477,7 +2513,7 @@ safeConfigs.forEach((content, index) => {
         assert.equal(safeReadFileSync(join(stagedRoot, ".yarnrc.yml")), content);
         assert.equal(safeReadFileSync(join(stagedRoot, pluginPath)), plugin);
       },
-      { execFile: execFile as any },
+      { execFile: execFile2 },
     );
     assert.equal(execFile.mock.callCount(), 1);
     assert.equal(safeReadFileSync(join(root, ".yarnrc.yml")), content);

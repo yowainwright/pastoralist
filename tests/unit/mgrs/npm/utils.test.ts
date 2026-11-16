@@ -4,7 +4,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-
 test("npm inventory retains installed aliases and canonical registry names", (t) => {
   const root = mkdtempSync(resolve(".npm-alias-inventory-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -19,19 +18,19 @@ test("npm inventory retains installed aliases and canonical registry names", (t)
     },
   );
 });
-
 test("npm v1 inventory resolves scoped aliases in nested dependencies", (t) => {
   const root = mkdtempSync(resolve(".npm-legacy-alias-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const alias = { version: "npm:@scope/actual@1.2.3" };
-  const dependencies = { parent: { version: "2.0.0", dependencies: { alias } } };
+  const dependencies2 = { alias };
+  const parent = { version: "2.0.0", dependencies: dependencies2 };
+  const dependencies = { parent: parent };
   writeFileSync(resolve(root, "package-lock.json"), JSON.stringify({ dependencies }));
   assert.deepEqual(parseNpmLockedPackages(root), [
     { name: "parent", version: "2.0.0" },
     { name: "alias", version: "1.2.3", registryName: "@scope/actual" },
   ]);
 });
-
 test("npm graph includes optional dependency parents", (t) => {
   const root = mkdtempSync(resolve(".npm-optional-graph-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));

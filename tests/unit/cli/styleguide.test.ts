@@ -11,7 +11,7 @@ const ANSI_COLOR_PATTERN = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "
 
 const createOutput = (): Output & { output: string } => {
   let output = "";
-  return {
+  const result = {
     get output() {
       return output;
     },
@@ -25,6 +25,7 @@ const createOutput = (): Output & { output: string } => {
     hideCursor: () => {},
     showCursor: () => {},
   };
+  return result;
 };
 
 const createStyleguidePrompts = (
@@ -32,7 +33,7 @@ const createStyleguidePrompts = (
   checked: string[] = ["pnpm"],
 ): StyleguidePrompts => {
   let selectionIndex = 0;
-  return {
+  const result: StyleguidePrompts = {
     select: async () => {
       const selection = selections[selectionIndex] ?? "exit";
       selectionIndex += 1;
@@ -43,11 +44,11 @@ const createStyleguidePrompts = (
     input: async (_message, defaultValue) => defaultValue ?? "pastoralist",
     list: async () => "pnpm",
   };
+  return result;
 };
 
 test("formatStyleguide renders a deterministic public DX preview", () => {
   const rendered = formatStyleguide().replace(ANSI_COLOR_PATTERN, "");
-
   assert.match(rendered, /DX styleguide/);
   assert.match(rendered, /Colors and links/);
   assert.match(rendered, /visible width/);
@@ -62,9 +63,7 @@ test("formatStyleguide renders a deterministic public DX preview", () => {
 test("showStyleguide renders each DX component group", async () => {
   const output = createOutput();
   const prompts = createStyleguidePrompts(["all", "exit"]);
-
   await showStyleguide(output, prompts);
-
   const rendered = output.output.replace(ANSI_COLOR_PATTERN, "");
   assert.match(rendered, /DX styleguide/);
   assert.match(rendered, /Colors and links/);
@@ -81,9 +80,7 @@ test("showStyleguide renders each DX component group", async () => {
 test("showStyleguide runs interactive prompt demos without changing files", async () => {
   const output = createOutput();
   const prompts = createStyleguidePrompts(["prompts", "exit"], ["npm", "pnpm"]);
-
   await showStyleguide(output, prompts);
-
   const rendered = output.output.replace(ANSI_COLOR_PATTERN, "");
   assert.match(rendered, /Interactive prompts/);
   assert.match(rendered, /Confirmed: yes/);

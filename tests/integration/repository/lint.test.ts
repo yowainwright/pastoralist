@@ -9,6 +9,12 @@ import legibility from "oxlint-plugin-legibility";
 const configPath = resolve(".oxlintrc.json");
 const config = JSON.parse(readFileSync(configPath, "utf8"));
 const executable = resolve("node_modules/.bin/oxlint");
+const packageJSON = JSON.parse(readFileSync(resolve("package.json"), "utf8"));
+
+test("regular JavaScript lint includes all test files", () => {
+  const args = packageJSON.scripts["lint:js:check"].split(/\s+/);
+  assert.ok(args.includes("tests"));
+});
 
 test("strictness applies without package-script flags", () => {
   assert.equal(config.options.denyWarnings, true);

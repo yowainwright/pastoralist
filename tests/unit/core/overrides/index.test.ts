@@ -18,9 +18,8 @@ import {
 } from "../../../../src/core/overrides";
 
 test("defineOverride - should return npm overrides when only overrides exist", () => {
-  const config: OverridesConfig = {
-    overrides: { lodash: "4.17.21" },
-  };
+  const overrides = { lodash: "4.17.21" };
+  const config: OverridesConfig = { overrides };
 
   const result = defineOverride(config);
 
@@ -29,11 +28,11 @@ test("defineOverride - should return npm overrides when only overrides exist", (
 });
 
 test("defineOverride - should return undefined when multiple override types exist", () => {
-  const config: OverridesConfig = {
-    overrides: { lodash: "4.17.21" },
-    pnpm: { overrides: { react: "18.0.0" } },
-    resolutions: { vue: "3.0.0" },
-  };
+  const overrides = { lodash: "4.17.21" };
+  const overrides2 = { react: "18.0.0" };
+  const pnpm = { overrides: overrides2 };
+  const resolutions = { vue: "3.0.0" };
+  const config: OverridesConfig = { overrides, pnpm, resolutions };
 
   const result = defineOverride(config);
 
@@ -49,9 +48,9 @@ test("defineOverride - should return undefined when no overrides exist", () => {
 });
 
 test("defineOverride - should return pnpm overrides when only pnpm exists", () => {
-  const config: OverridesConfig = {
-    pnpm: { overrides: { react: "18.0.0" } },
-  };
+  const overrides = { react: "18.0.0" };
+  const pnpm = { overrides };
+  const config: OverridesConfig = { pnpm };
 
   const result = defineOverride(config);
 
@@ -60,9 +59,8 @@ test("defineOverride - should return pnpm overrides when only pnpm exists", () =
 });
 
 test("defineOverride - should return resolutions when only resolutions exist", () => {
-  const config: OverridesConfig = {
-    resolutions: { vue: "3.0.0" },
-  };
+  const resolutions = { vue: "3.0.0" };
+  const config: OverridesConfig = { resolutions };
 
   const result = defineOverride(config);
 
@@ -71,9 +69,8 @@ test("defineOverride - should return resolutions when only resolutions exist", (
 });
 
 test("resolveOverrides - should resolve npm overrides", () => {
-  const config: OverridesConfig = {
-    overrides: { lodash: "4.17.21" },
-  };
+  const overrides = { lodash: "4.17.21" };
+  const config: OverridesConfig = { overrides };
 
   const result = resolveOverrides({ config });
 
@@ -82,9 +79,9 @@ test("resolveOverrides - should resolve npm overrides", () => {
 });
 
 test("resolveOverrides - should resolve pnpm overrides", () => {
-  const config: OverridesConfig = {
-    pnpm: { overrides: { react: "18.0.0" } },
-  };
+  const overrides = { react: "18.0.0" };
+  const pnpm = { overrides };
+  const config: OverridesConfig = { pnpm };
 
   const result = resolveOverrides({ config });
 
@@ -93,9 +90,8 @@ test("resolveOverrides - should resolve pnpm overrides", () => {
 });
 
 test("resolveOverrides - should resolve resolutions", () => {
-  const config: OverridesConfig = {
-    resolutions: { vue: "3.0.0" },
-  };
+  const resolutions = { vue: "3.0.0" };
+  const config: OverridesConfig = { resolutions };
 
   const result = resolveOverrides({ config });
 
@@ -110,10 +106,9 @@ test("resolveOverrides - should return undefined when no config", () => {
 });
 
 test("getOverridesByType - should return npm overrides", () => {
-  const data = {
-    type: "npm" as const,
-    overrides: { lodash: "4.17.21" },
-  };
+  const type = "npm" as const;
+  const overrides = { lodash: "4.17.21" };
+  const data = { type, overrides };
 
   const result = getOverridesByType(data);
 
@@ -121,10 +116,10 @@ test("getOverridesByType - should return npm overrides", () => {
 });
 
 test("getOverridesByType - should return pnpm overrides", () => {
-  const data = {
-    type: "pnpm" as const,
-    pnpm: { overrides: { react: "18.0.0" } },
-  };
+  const type = "pnpm" as const;
+  const overrides = { react: "18.0.0" };
+  const pnpm = { overrides };
+  const data = { type, pnpm };
 
   const result = getOverridesByType(data);
 
@@ -132,10 +127,9 @@ test("getOverridesByType - should return pnpm overrides", () => {
 });
 
 test("getOverridesByType - should return resolutions", () => {
-  const data = {
-    type: "resolutions" as const,
-    resolutions: { vue: "3.0.0" },
-  };
+  const type = "resolutions" as const;
+  const resolutions = { vue: "3.0.0" };
+  const data = { type, resolutions };
 
   const result = getOverridesByType(data);
 
@@ -149,10 +143,9 @@ test("getOverridesByType - should return undefined when no type", () => {
 });
 
 test("updateOverrides - should remove specified overrides", () => {
-  const data = {
-    type: "npm" as const,
-    overrides: { lodash: "4.17.21", react: "18.0.0" },
-  };
+  const type = "npm" as const;
+  const overrides = { lodash: "4.17.21", react: "18.0.0" };
+  const data = { type, overrides };
 
   const result = updateOverrides(data, ["react"]);
 
@@ -166,10 +159,9 @@ test("updateOverrides - should return undefined when no data", () => {
 });
 
 test("updateOverrides - should return undefined when overrides are empty", () => {
-  const data = {
-    type: "npm" as const,
-    overrides: {},
-  };
+  const type = "npm" as const;
+  const overrides = {};
+  const data = { type, overrides };
 
   const result = updateOverrides(data, []);
 
@@ -177,7 +169,9 @@ test("updateOverrides - should return undefined when overrides are empty", () =>
 });
 
 test("resolveOverrides - should return undefined when type is missing", () => {
-  const result = resolveOverrides({ config: {}, type: undefined as any });
+  const config = {};
+  const type = undefined as any;
+  const result = resolveOverrides({ config, type });
 
   assert.strictEqual(result, undefined);
 });
@@ -218,19 +212,15 @@ test("parsePnpmWorkspaceOverrides - reads nested block mappings", () => {
     "",
   ].join("\n");
 
-  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(content), {
-    foo: { bar: "1.2.3", baz: "2.0.0" },
-    lodash: "4.17.21",
-  });
+  const foo = { bar: "1.2.3", baz: "2.0.0" };
+  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(content), { foo, lodash: "4.17.21" });
 });
 
 test("parsePnpmWorkspaceOverrides - reads nested flow mappings", () => {
   const content = "overrides: { foo: { bar: 1.2.3, baz: '2.0.0' }, lodash: 4.17.21 }\n";
 
-  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(content), {
-    foo: { bar: "1.2.3", baz: "2.0.0" },
-    lodash: "4.17.21",
-  });
+  const foo = { bar: "1.2.3", baz: "2.0.0" };
+  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(content), { foo, lodash: "4.17.21" });
 });
 
 test("parsePnpmWorkspaceOverrides - rejects deeply nested flow mappings", () => {
@@ -251,47 +241,48 @@ test("parsePnpmWorkspaceOverrides - rejects deeply nested block mappings", () =>
   );
 });
 
+const PRESERVED_WORKSPACE_CONTENT = [
+  "# workspace settings",
+  "packages:",
+  '  - "packages/*"',
+  "overrides:",
+  "  # security pin",
+  "  lodash: 4.17.20 # CVE pin",
+  '  react: "18.3.1"',
+  "catalog:",
+  "  typescript: 7.0.2",
+  "",
+].join("\n");
+
 test("updatePnpmWorkspaceOverrides - preserves comments and existing order", () => {
-  const content = [
-    "# workspace settings",
-    "packages:",
-    '  - "packages/*"',
-    "overrides:",
-    "  # security pin",
-    "  lodash: 4.17.20 # CVE pin",
-    '  react: "18.3.1"',
-    "catalog:",
-    "  typescript: 7.0.2",
-    "",
-  ].join("\n");
-  const updated = updatePnpmWorkspaceOverrides(content, {
+  const updated = updatePnpmWorkspaceOverrides(PRESERVED_WORKSPACE_CONTENT, {
     lodash: "4.17.21",
     react: "18.3.1",
     zod: "4.0.0",
   });
 
-  assert.ok(updated.includes("# workspace settings"));
-  assert.ok(updated.includes("# security pin"));
-  assert.ok(updated.includes("lodash: 4.17.21 # CVE pin"));
-  assert.ok(updated.includes('react: "18.3.1"'));
-  assert.ok(updated.indexOf("lodash:") < updated.indexOf("react:"));
-  assert.ok(updated.indexOf("react:") < updated.indexOf('"zod":'));
-  assert.ok(updated.indexOf('"zod":') < updated.indexOf("catalog:"));
+  assert.match(updated, /# workspace settings/);
+  assert.match(updated, /# security pin/);
+  assert.match(updated, /lodash: 4\.17\.21 # CVE pin/);
+  assert.match(updated, /react: "18\.3\.1"/);
+  const lodashIndex = updated.search(/lodash:/);
+  const reactIndex = updated.search(/react:/);
+  const zodIndex = updated.search(/"zod":/);
+  const catalogIndex = updated.search(/catalog:/);
+  assert.ok(lodashIndex < reactIndex);
+  assert.ok(reactIndex < zodIndex);
+  assert.ok(zodIndex < catalogIndex);
 });
 
 test("updatePnpmWorkspaceOverrides - preserves unchanged nested block mappings", () => {
   const content = ["overrides:", "  foo:", "    bar: 1.2.3", "  lodash: 4.17.20", ""].join("\n");
-  const updated = updatePnpmWorkspaceOverrides(content, {
-    foo: { bar: "1.2.3" },
-    lodash: "4.17.21",
-  });
+  const foo = { bar: "1.2.3" };
+  const updated = updatePnpmWorkspaceOverrides(content, { foo, lodash: "4.17.21" });
 
-  assert.ok(updated.includes("  foo:\n    bar: 1.2.3"));
-  assert.ok(updated.includes("  lodash: 4.17.21"));
-  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), {
-    foo: { bar: "1.2.3" },
-    lodash: "4.17.21",
-  });
+  assert.match(updated, /  foo:\n    bar: 1\.2\.3/);
+  assert.match(updated, /  lodash: 4\.17\.21/);
+  const foo2 = { bar: "1.2.3" };
+  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), { foo: foo2, lodash: "4.17.21" });
 });
 
 test("updatePnpmWorkspaceOverrides - removes nested entries as one block", () => {
@@ -306,10 +297,10 @@ test("updatePnpmWorkspaceOverrides - removes nested entries as one block", () =>
   ].join("\n");
   const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
 
-  assert.ok(!updated.includes("foo:"));
-  assert.ok(!updated.includes("bar:"));
-  assert.ok(!updated.includes("baz:"));
-  assert.ok(updated.includes("# retained comment"));
+  assert.doesNotMatch(updated, /foo:/);
+  assert.doesNotMatch(updated, /bar:/);
+  assert.doesNotMatch(updated, /baz:/);
+  assert.match(updated, /# retained comment/);
   assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), { lodash: "4.17.21" });
 });
 
@@ -325,7 +316,7 @@ test("updatePnpmWorkspaceOverrides - preserves unknown nested boundaries", () =>
 
   const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
 
-  assert.ok(updated.includes("  invalid"));
+  assert.match(updated, /  invalid/);
   assert.ok(!updated.includes("foo:"));
 });
 
@@ -342,7 +333,7 @@ test("updatePnpmWorkspaceOverrides - converts flow sections to blocks", () => {
 
   const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
 
-  assert.ok(updated.includes("overrides: # pins"));
+  assert.match(updated, /overrides: # pins/);
   assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), { lodash: "4.17.21" });
 });
 
@@ -371,12 +362,18 @@ const createOverrideSource = (
   kind: "json" | "manifest",
   field: "resolutions" | "overrides" | "pnpm",
   path: string,
-) => ({ packageManager: "pnpm" as const, overrides: {}, kind, path, field });
+) => {
+  const packageManager2 = "pnpm" as const;
+  const overrides2 = {};
+  const source = { packageManager: packageManager2, overrides: overrides2, kind, path, field };
+  return source;
+};
 
 test("applyOverridesToSourceConfig - removes resolutions", () => {
   const source = createOverrideSource("json", "resolutions", "pins.json");
   const config = { name: "app", version: "1.0.0" };
-  const configWithResolutions = Object.assign({}, config, { resolutions: { foo: "1" } });
+  const resolutions = { foo: "1" };
+  const configWithResolutions = Object.assign({}, config, { resolutions });
 
   assert.deepStrictEqual(applyOverridesToSourceConfig(configWithResolutions, source, {}), config);
 });
@@ -384,7 +381,8 @@ test("applyOverridesToSourceConfig - removes resolutions", () => {
 test("applyOverridesToSourceConfig - removes manifest overrides", () => {
   const source = createOverrideSource("manifest", "overrides", "package.json");
   const config = { name: "app", version: "1.0.0" };
-  const input = Object.assign({}, config, { overrides: { foo: "1" } });
+  const overrides = { foo: "1" };
+  const input = Object.assign({}, config, { overrides });
 
   assert.deepStrictEqual(applyOverridesToSourceConfig(input, source, {}), config);
 });
@@ -392,11 +390,16 @@ test("applyOverridesToSourceConfig - removes manifest overrides", () => {
 test("applyOverridesToSourceConfig - preserves pnpm extensions", () => {
   const source = createOverrideSource("json", "pnpm", "pins.json");
   const config = { name: "app", version: "1.0.0" };
-  const configWithPnpm = Object.assign({}, config, { pnpm: { overrides: { foo: "1" } } });
-  const configWithExtensions = Object.assign({}, config, {
-    pnpm: { overrides: { foo: "1" }, packageExtensions: {} },
-  });
-  const expectedExtensions = Object.assign({}, config, { pnpm: { packageExtensions: {} } });
+  const overrides = { foo: "1" };
+  const pnpm = { overrides };
+  const configWithPnpm = Object.assign({}, config, { pnpm });
+  const overrides2 = { foo: "1" };
+  const packageExtensions = {};
+  const pnpm2 = { overrides: overrides2, packageExtensions };
+  const configWithExtensions = Object.assign({}, config, { pnpm: pnpm2 });
+  const packageExtensions2 = {};
+  const pnpm3 = { packageExtensions: packageExtensions2 };
+  const expectedExtensions = Object.assign({}, config, { pnpm: pnpm3 });
 
   assert.deepStrictEqual(applyOverridesToSourceConfig(configWithPnpm, source, {}), config);
   assert.deepStrictEqual(
@@ -426,11 +429,9 @@ test("resolveOverrideSource - selects pnpm-workspace.yaml for pnpm 11", () => {
 test("resolveOverrideSource - keeps pnpm 10 overrides in the manifest", () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-10-"));
   const manifestPath = join(root, "package.json");
-  const config: PastoralistJSON = {
-    name: "pnpm-project",
-    version: "1.0.0",
-    pnpm: { overrides: { lodash: "4.17.21" } },
-  };
+  const overrides = { lodash: "4.17.21" };
+  const pnpm = { overrides };
+  const config: PastoralistJSON = { name: "pnpm-project", version: "1.0.0", pnpm };
   writeFileSync(manifestPath, JSON.stringify(config));
   writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
 
@@ -469,11 +470,7 @@ engineDeclarations.forEach((packageManager) => {
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const manifestPath = join(root, "package.json");
     const devEngines = { packageManager };
-    const config: PastoralistJSON = {
-      name: "engine-fixture",
-      version: "1.0.0",
-      devEngines,
-    };
+    const config: PastoralistJSON = { name: "engine-fixture", version: "1.0.0", devEngines };
     writeFileSync(manifestPath, JSON.stringify(config));
     writeManagerLock(root, modernPnpmEngine.version, "12.0.0");
     assertEngineOverrideSource(config, manifestPath, root);
@@ -593,11 +590,8 @@ test("writeOverrideSource - writes an explicit YAML source without changing comm
   const sourceDir = join(root, "config");
   const manifestPath = join(root, "package.json");
   const sourcePath = join(sourceDir, "pins.yaml");
-  const config: PastoralistJSON = {
-    name: "custom-source",
-    version: "1.0.0",
-    pastoralist: { overrideSource: "config/pins.yaml" },
-  };
+  const pastoralist = { overrideSource: "config/pins.yaml" };
+  const config: PastoralistJSON = { name: "custom-source", version: "1.0.0", pastoralist };
   mkdirSync(sourceDir, { recursive: true });
   writeFileSync(manifestPath, JSON.stringify(config));
   writeFileSync(sourcePath, '# retained\noverrides:\n  lodash: "4.17.20"\n');
@@ -606,10 +600,7 @@ test("writeOverrideSource - writes an explicit YAML source without changing comm
   writeOverrideSource(source, { lodash: "4.17.21", zod: "4.0.0" });
   const updated = readFileSync(sourcePath, "utf8");
 
-  assert.ok(updated.includes("# retained"));
-  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), {
-    lodash: "4.17.21",
-    zod: "4.0.0",
-  });
+  assert.match(updated, /# retained/);
+  assert.deepStrictEqual(parsePnpmWorkspaceOverrides(updated), { lodash: "4.17.21", zod: "4.0.0" });
   rmSync(root, { recursive: true, force: true });
 });

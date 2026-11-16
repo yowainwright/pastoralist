@@ -4,25 +4,19 @@ import { mock } from "../../../setup";
 import assert from "node:assert/strict";
 import { SocketCLIProvider } from "../../../../../src/core/security/providers/socket";
 import { randomUUID } from "node:crypto";
-
+import type { SocketIssue, SocketPackage } from "../../../../../src/types";
 test("providerType - should be 'socket'", () => {
   const provider = new SocketCLIProvider({ debug: false });
   assert.strictEqual(provider.providerType, "socket");
 });
-
 test("Construction - should create provider without token", () => {
   const provider = new SocketCLIProvider({ debug: false });
   assert.notStrictEqual(provider, undefined);
 });
-
 test("Construction - should create provider with token", () => {
-  const providerWithToken = new SocketCLIProvider({
-    debug: false,
-    token: "test-api-key",
-  });
+  const providerWithToken = new SocketCLIProvider({ debug: false, token: "test-api-key" });
   assert.notStrictEqual(providerWithToken, undefined);
 });
-
 test("Severity Mapping - should map Socket severity levels correctly", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const testCases = [
@@ -33,26 +27,19 @@ test("Severity Mapping - should map Socket severity levels correctly", () => {
     { input: "low", expected: "low" },
     { input: "info", expected: "low" },
   ];
-
-  for (const test of testCases) {
-    const mapped = (provider as any).mapSocketSeverity(test.input);
-    assert.strictEqual(mapped, test.expected);
+  for (const testCase of testCases) {
+    const mapped = (provider as any).mapSocketSeverity(testCase.input);
+    assert.strictEqual(mapped, testCase.expected);
   }
 });
-
 test("Severity Mapping - should default unknown severity to medium", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const mapped = (provider as any).mapSocketSeverity("unknown");
   assert.strictEqual(mapped, "medium");
 });
-
 test("Alert Conversion - should convert Socket issue to SecurityAlert", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const pkg = {
-    name: "test-package",
-    version: "1.0.0",
-  };
-
+  const pkg = { name: "test-package", version: "1.0.0" };
   const issue = {
     type: "vulnerability",
     severity: "high",
@@ -61,9 +48,7 @@ test("Alert Conversion - should convert Socket issue to SecurityAlert", () => {
     cve: "CVE-2024-12345",
     url: "https://socket.dev/test",
   };
-
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
-
   assert.strictEqual(alert.packageName, "test-package");
   assert.strictEqual(alert.currentVersion, "1.0.0");
   assert.strictEqual(alert.severity, "high");
@@ -71,128 +56,70 @@ test("Alert Conversion - should convert Socket issue to SecurityAlert", () => {
   assert.strictEqual(alert.cves?.[0], "CVE-2024-12345");
   assert.strictEqual(alert.fixAvailable, false);
 });
-
 test("Alert Conversion - should handle non-CVE issues", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const pkg = {
-    name: "test-package",
-    version: "1.0.0",
-  };
-
+  const pkg = { name: "test-package", version: "1.0.0" };
   const issue = {
     type: "malware",
     severity: "critical",
     title: "Malware Detected",
     description: "This package contains malware",
   };
-
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
-
   assert.strictEqual(alert.packageName, "test-package");
   assert.strictEqual(alert.vulnerableVersions, "");
   assert.strictEqual(alert.cves, undefined);
 });
-
 test("Alert Conversion - should set vulnerableVersions for CVE issues", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const pkg = {
-    name: "test-package",
-    version: "1.0.0",
-  };
-
-  const issue = {
-    type: "vulnerability",
-    severity: "high",
-    title: "Test",
-  };
-
+  const pkg = { name: "test-package", version: "1.0.0" };
+  const issue = { type: "vulnerability", severity: "high", title: "Test" };
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
-
   assert.strictEqual(alert.vulnerableVersions, "<= 1.0.0");
 });
-
 test("convertSocketAlerts - should return empty array for invalid input", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const alerts = (provider as any).convertSocketAlerts({});
   assert.deepStrictEqual(alerts, []);
 });
-
 test("convertSocketAlerts - should convert valid Socket result", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const socketResult = {
-    packages: [
-      {
-        name: "test-pkg",
-        version: "1.0.0",
-        issues: [
-          {
-            type: "vulnerability",
-            severity: "high",
-            title: "Test Vuln",
-            description: "Test",
-            cve: "CVE-2024-12345",
-          },
-        ],
-      },
-    ],
-  };
-
+  const issues = [
+    {
+      type: "vulnerability",
+      severity: "high",
+      title: "Test Vuln",
+      description: "Test",
+      cve: "CVE-2024-12345",
+    },
+  ];
+  const packages = [{ name: "test-pkg", version: "1.0.0", issues }];
+  const socketResult = { packages };
   const alerts = (provider as any).convertSocketAlerts(socketResult);
   assert.strictEqual(alerts.length, 1);
   assert.strictEqual(alerts[0].packageName, "test-pkg");
 });
-
 test("convertSocketAlerts - should filter out packages without issues", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const socketResult = {
-    packages: [
-      {
-        name: "clean-pkg",
-        version: "1.0.0",
-        issues: [],
-      },
-      {
-        name: "vuln-pkg",
-        version: "2.0.0",
-        issues: [
-          {
-            type: "vulnerability",
-            severity: "high",
-            title: "Test",
-          },
-        ],
-      },
-    ],
-  };
-
+  const issues: SocketIssue[] = [];
+  const issues2 = [{ type: "vulnerability", severity: "high", title: "Test" }];
+  const packages = [
+    { name: "clean-pkg", version: "1.0.0", issues },
+    { name: "vuln-pkg", version: "2.0.0", issues: issues2 },
+  ];
+  const socketResult = { packages };
   const alerts = (provider as any).convertSocketAlerts(socketResult);
   assert.strictEqual(alerts.length, 1);
   assert.strictEqual(alerts[0].packageName, "vuln-pkg");
 });
-
 test("convertSocketAlerts - should handle multiple issues per package", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const socketResult = {
-    packages: [
-      {
-        name: "multi-issue-pkg",
-        version: "1.0.0",
-        issues: [
-          {
-            type: "vulnerability",
-            severity: "high",
-            title: "Vuln 1",
-          },
-          {
-            type: "malware",
-            severity: "critical",
-            title: "Malware",
-          },
-        ],
-      },
-    ],
-  };
-
+  const issues = [
+    { type: "vulnerability", severity: "high", title: "Vuln 1" },
+    { type: "malware", severity: "critical", title: "Malware" },
+  ];
+  const packages = [{ name: "multi-issue-pkg", version: "1.0.0", issues }];
+  const socketResult = { packages };
   const alerts = (provider as any).convertSocketAlerts(socketResult);
   assert.strictEqual(alerts.length, 2);
   assert.strictEqual(alerts[0].packageName, "multi-issue-pkg");
@@ -205,7 +132,6 @@ test("Severity Mapping - should handle uppercase severity", () => {
   assert.strictEqual((provider as any).mapSocketSeverity("MODERATE"), "medium");
   assert.strictEqual((provider as any).mapSocketSeverity("INFO"), "low");
 });
-
 test("Alert Conversion - should use url field if provided", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const pkg = { name: "test-package", version: "1.0.0" };
@@ -215,34 +141,28 @@ test("Alert Conversion - should use url field if provided", () => {
     title: "Test",
     url: "https://custom.url/vuln",
   };
-
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
   assert.strictEqual(alert.url, "https://custom.url/vuln");
 });
-
 test("convertSocketAlerts - should handle missing packages array", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const alerts = (provider as any).convertSocketAlerts({ packages: null });
   assert.deepStrictEqual(alerts, []);
 });
-
 test("Construction - should set strict mode when provided", () => {
   const provider = new SocketCLIProvider({ debug: false, strict: true });
   assert.strictEqual((provider as any).strict, true);
 });
-
 test("Construction - should default strict to false", () => {
   const provider = new SocketCLIProvider({ debug: false });
   assert.strictEqual((provider as any).strict, false);
 });
-
 test("fetchAlerts - should return empty array when prerequisites fail", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).validatePrerequisites = async () => false;
   const alerts = await provider.fetchAlerts();
   assert.deepStrictEqual(alerts, []);
 });
-
 test("fetchAlerts - should throw when strict mode and scan fails", async () => {
   const provider = new SocketCLIProvider({ debug: false, strict: true });
   (provider as any).validatePrerequisites = async () => true;
@@ -251,7 +171,6 @@ test("fetchAlerts - should throw when strict mode and scan fails", async () => {
   };
   await assert.rejects(provider.fetchAlerts(), errorIncludes("Socket security check failed"));
 });
-
 test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {
   const provider = new SocketCLIProvider({ debug: false, strict: false });
   (provider as any).validatePrerequisites = async () => true;
@@ -261,7 +180,6 @@ test("fetchAlerts - should warn and return empty when not strict and scan fails"
   const alerts = await provider.fetchAlerts();
   assert.deepStrictEqual(alerts, []);
 });
-
 test("fetchAlerts - should handle non-Error exceptions", async () => {
   const provider = new SocketCLIProvider({ debug: false, strict: false });
   (provider as any).validatePrerequisites = async () => true;
@@ -271,132 +189,112 @@ test("fetchAlerts - should handle non-Error exceptions", async () => {
   const alerts = await provider.fetchAlerts();
   assert.deepStrictEqual(alerts, []);
 });
-
 test("ensureInstalled - should call installer", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).installer.ensureInstalled = async () => true;
-
   const result = await provider.ensureInstalled();
   assert.strictEqual(result, true);
 });
-
 test("ensureInstalled - should return false when not installed", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).installer.ensureInstalled = async () => false;
-
   const result = await provider.ensureInstalled();
   assert.strictEqual(result, false);
 });
-
 test("isAuthenticated - should return true when token exists", () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
   const result = provider.isAuthenticated();
   assert.strictEqual(result, true);
 });
-
 test("isAuthenticated - should return false when no token", () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).token = undefined;
   const result = provider.isAuthenticated();
   assert.strictEqual(result, false);
 });
-
 test("validatePrerequisites - should return false when not installed", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).ensureInstalled = async () => false;
-
   const result = await (provider as any).validatePrerequisites();
   assert.strictEqual(result, false);
 });
-
 test("validatePrerequisites - should return false when not authenticated", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).ensureInstalled = async () => true;
   (provider as any).isAuthenticated = () => false;
-
   const result = await (provider as any).validatePrerequisites();
   assert.strictEqual(result, false);
 });
-
 test("validatePrerequisites - should return true when installed and authenticated", async () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
   (provider as any).ensureInstalled = async () => true;
-
   const result = await (provider as any).validatePrerequisites();
   assert.strictEqual(result, true);
 });
+const SOCKET_TEST_ISSUE = {
+  type: "vulnerability",
+  severity: "high",
+  title: "Test Issue",
+  description: "Test",
+  cve: "CVE-2024-1234",
+};
 
 test("fetchAlerts - should return alerts on successful scan", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSocketScan = async () => ({
-    packages: [
-      {
-        name: "test-pkg",
-        version: "1.0.0",
-        issues: [
-          {
-            type: "vulnerability",
-            severity: "high",
-            title: "Test Issue",
-            description: "Test",
-            cve: "CVE-2024-1234",
-          },
-        ],
-      },
-    ],
-  });
-
+  (provider as any).runSocketScan = async () => {
+    const issues = [SOCKET_TEST_ISSUE];
+    const packages = [{ name: "test-pkg", version: "1.0.0", issues }];
+    const result2 = { packages };
+    return result2;
+  };
   const alerts = await provider.fetchAlerts();
   assert.strictEqual(alerts.length, 1);
   assert.strictEqual(alerts[0].packageName, "test-pkg");
 });
+const SOCKET_SCAN_ARGUMENTS = [
+  "package",
+  "shallow",
+  "npm",
+  "test-pkg@1.0.0",
+  "--json",
+  "--no-interactive",
+  "--no-banner",
+  "--no-spinner",
+];
 
 test("fetchAlerts - passes the configured root to the Socket scan", async () => {
   const packages = [{ name: "test-pkg", version: "1.0.0" }];
-  const execFileAsync = mock(async () => ({
-    stdout: JSON.stringify({ ok: true, data: packages }),
-    stderr: "",
-  }));
-  const provider = new SocketCLIProvider({
-    token: ["test", "token"].join("-"),
-    debug: false,
-    execFileAsync,
+  const execFileAsync = mock(async () => {
+    const stdout = JSON.stringify({ ok: true, data: packages });
+    const result3 = { stdout, stderr: "" };
+    return result3;
   });
+  const token = ["test", "token"].join("-");
+  const provider = new SocketCLIProvider({ token, debug: false, execFileAsync });
   provider.ensureInstalled = async () => true;
-
   await provider.fetchAlerts(packages, { root: "/project/root" });
-
   assertCalledWith(
     execFileAsync,
     "socket",
-    [
-      "package",
-      "shallow",
-      "npm",
-      "test-pkg@1.0.0",
-      "--json",
-      "--no-interactive",
-      "--no-banner",
-      "--no-spinner",
-    ],
+    SOCKET_SCAN_ARGUMENTS,
     objectContaining({ cwd: "/project/root" }),
   );
 });
-
 const createSocketLookup = (data: unknown) => {
-  const execFileAsync = mock(async () => ({
-    stdout: JSON.stringify({ ok: true, data }),
-    stderr: "",
-  }));
+  const execFileAsync = mock(async () => {
+    const stdout = JSON.stringify({ ok: true, data });
+    const result4 = { stdout, stderr: "" };
+    return result4;
+  });
   const token = randomUUID();
   const provider = new SocketCLIProvider({ token, strict: true, execFileAsync });
   provider.ensureInstalled = async () => true;
   return provider;
 };
-
 test("fetchAlerts - converts scoped package CVEs from supported shallow lookup responses", async () => {
-  const alerts = [{ type: "criticalCVE", severity: "high", props: { cveId: "CVE-2026-12345" } }];
+  const props = { cveId: "CVE-2026-12345" };
+  const alerts = [{ type: "criticalCVE", severity: "high", props }];
   const provider = createSocketLookup([
     { type: "npm", namespace: "@scope", name: "package", version: "1.0.0", alerts },
   ]);
@@ -405,7 +303,6 @@ test("fetchAlerts - converts scoped package CVEs from supported shallow lookup r
   assert.strictEqual(result[0].severity, "critical");
   assert.deepStrictEqual(result[0].cves, ["CVE-2026-12345"]);
 });
-
 test("fetchAlerts - rejects missing packages rather than reporting a clean scan", async () => {
   const provider = createSocketLookup([]);
   await assert.rejects(
@@ -413,84 +310,54 @@ test("fetchAlerts - rejects missing packages rather than reporting a clean scan"
     /incomplete package inventory/,
   );
 });
-
 test("fetchAlerts - rejects malformed alerts rather than reporting a clean scan", async () => {
-  const provider = createSocketLookup([{ name: "invalid", version: "1.0.0", alerts: [{}] }]);
+  const alerts = [{}];
+  const provider = createSocketLookup([{ name: "invalid", version: "1.0.0", alerts }]);
   await assert.rejects(
     provider.fetchAlerts([{ name: "invalid", version: "1.0.0" }]),
     /Invalid Socket alert metadata/,
   );
 });
-
 test("Alert Conversion - should use issue type as title when title missing", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const pkg = { name: "test-package", version: "1.0.0" };
-  const issue = {
-    type: "malware",
-    severity: "critical",
-    description: "Test",
-  };
-
+  const issue = { type: "malware", severity: "critical", description: "Test" };
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
   assert.strictEqual(alert.title, "malware");
 });
-
 test("Alert Conversion - should generate default url when not provided", () => {
   const provider = new SocketCLIProvider({ debug: false });
   const pkg = { name: "test-package", version: "1.0.0" };
-  const issue = {
-    type: "vulnerability",
-    severity: "high",
-    title: "Test",
-  };
-
+  const issue = { type: "vulnerability", severity: "high", title: "Test" };
   const alert = (provider as any).convertIssueToAlert(pkg, issue);
-  assert.ok(alert.url.includes("socket.dev"));
-  assert.ok(alert.url.includes("test-package"));
+  assert.match(alert.url, /socket\.dev/);
+  assert.match(alert.url, /test-package/);
 });
-
 test("runSocketScan - should parse JSON from successful scan", async () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
-  const mockResult = { packages: [] };
-
+  const packages: SocketPackage[] = [];
+  const mockResult = { packages };
   (provider as any).runSocketScan = async () => mockResult;
   (provider as any).validatePrerequisites = async () => true;
-
   const alerts = await provider.fetchAlerts();
   assert.deepStrictEqual(alerts, []);
 });
-
 test("runSocketScan - should handle scan with issues", async () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
-  const mockResult = {
-    packages: [
-      {
-        name: "test-pkg",
-        version: "1.0.0",
-        issues: [
-          {
-            type: "vulnerability",
-            severity: "high",
-            title: "Test Vuln",
-            description: "Test",
-          },
-        ],
-      },
-    ],
-  };
-
+  const issues = [
+    { type: "vulnerability", severity: "high", title: "Test Vuln", description: "Test" },
+  ];
+  const packages = [{ name: "test-pkg", version: "1.0.0", issues }];
+  const mockResult = { packages };
   (provider as any).runSocketScan = async () => mockResult;
   (provider as any).validatePrerequisites = async () => true;
-
   const alerts = await provider.fetchAlerts();
   assert.strictEqual(alerts.length, 1);
   assert.strictEqual(alerts[0].packageName, "test-pkg");
 });
-
 test("validatePrerequisites - should return true when fully setup", async () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
   (provider as any).ensureInstalled = async () => true;
-
   const result = await (provider as any).validatePrerequisites();
   assert.strictEqual(result, true);
 });

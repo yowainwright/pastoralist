@@ -14,7 +14,8 @@ const TEST_DIR = resolve(import.meta.dirname, ".test-patches");
 
 const createPatchFile = (filename: string) => {
   const dir = resolve(TEST_DIR, filename.substring(0, filename.lastIndexOf("/")));
-  if (dir !== TEST_DIR && !existsSync(dir)) {
+  const needsDirectory = dir !== TEST_DIR && !existsSync(dir);
+  if (needsDirectory) {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(resolve(TEST_DIR, filename), "patch content");
@@ -45,9 +46,8 @@ test("detectPatches - should detect simple patch files", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  });
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  assert.deepStrictEqual(result, { lodash });
 });
 
 test("detectPatches - should detect scoped package patches", () => {
@@ -56,9 +56,8 @@ test("detectPatches - should detect scoped package patches", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    "@babel/core": ["patches/@babel+core+7.20.0.patch"],
-  });
+  const babelCore = ["patches/@babel+core+7.20.0.patch"];
+  assert.deepStrictEqual(result, { "@babel/core": babelCore });
 });
 
 test("detectPatches - should detect patches without version", () => {
@@ -67,9 +66,8 @@ test("detectPatches - should detect patches without version", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    "my-package": ["patches/my-package.patch"],
-  });
+  const myPackage = ["patches/my-package.patch"];
+  assert.deepStrictEqual(result, { "my-package": myPackage });
 });
 
 test("detectPatches - should group multiple patches for same package", () => {
@@ -79,9 +77,8 @@ test("detectPatches - should group multiple patches for same package", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    lodash: ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"],
-  });
+  const lodash = ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"];
+  assert.deepStrictEqual(result, { lodash });
 });
 
 test("detectPatches - should handle multiple packages", () => {
@@ -91,10 +88,9 @@ test("detectPatches - should handle multiple packages", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    lodash: ["patches/lodash+4.17.21.patch"],
-    react: ["patches/react+18.0.0.patch"],
-  });
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const react = ["patches/react+18.0.0.patch"];
+  assert.deepStrictEqual(result, { lodash, react });
 });
 
 test("detectPatches - should ignore non-patch files", () => {
@@ -104,9 +100,8 @@ test("detectPatches - should ignore non-patch files", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  });
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  assert.deepStrictEqual(result, { lodash });
 });
 
 test("detectPatches - should handle scoped packages with only scope", () => {
@@ -115,9 +110,8 @@ test("detectPatches - should handle scoped packages with only scope", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  assert.deepStrictEqual(result, {
-    "@babel": ["patches/@babel.patch"],
-  });
+  const babel = ["patches/@babel.patch"];
+  assert.deepStrictEqual(result, { "@babel": babel });
 });
 
 test("detectPatches - should return empty object on error", () => {
@@ -136,9 +130,8 @@ test("detectPatches - should use provided root path", () => {
 });
 
 test("getPackagePatches - should return patches for existing package", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
 
   const result = getPackagePatches("lodash", patchMap);
 
@@ -146,9 +139,8 @@ test("getPackagePatches - should return patches for existing package", () => {
 });
 
 test("getPackagePatches - should return empty array for non-existent package", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
 
   const result = getPackagePatches("react", patchMap);
 
@@ -164,14 +156,10 @@ test("getPackagePatches - should return empty array for empty patch map", () => 
 });
 
 test("findUnusedPatches - should return empty array when all patches are used", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-    react: ["patches/react+18.0.0.patch"],
-  };
-  const dependencies = {
-    lodash: "^4.17.21",
-    react: "^18.0.0",
-  };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const react = ["patches/react+18.0.0.patch"];
+  const patchMap = { lodash, react };
+  const dependencies = { lodash: "^4.17.21", react: "^18.0.0" };
 
   const result = findUnusedPatches(patchMap, dependencies);
 
@@ -179,13 +167,10 @@ test("findUnusedPatches - should return empty array when all patches are used", 
 });
 
 test("findUnusedPatches - should find unused patches for removed dependencies", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-    react: ["patches/react+18.0.0.patch"],
-  };
-  const dependencies = {
-    lodash: "^4.17.21",
-  };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const react = ["patches/react+18.0.0.patch"];
+  const patchMap = { lodash, react };
+  const dependencies = { lodash: "^4.17.21" };
 
   const result = findUnusedPatches(patchMap, dependencies);
 
@@ -193,10 +178,9 @@ test("findUnusedPatches - should find unused patches for removed dependencies", 
 });
 
 test("findUnusedPatches - should find all unused patches", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-    react: ["patches/react+18.0.0.patch"],
-  };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const react = ["patches/react+18.0.0.patch"];
+  const patchMap = { lodash, react };
   const dependencies = {};
 
   const result = findUnusedPatches(patchMap, dependencies);
@@ -205,9 +189,8 @@ test("findUnusedPatches - should find all unused patches", () => {
 });
 
 test("findUnusedPatches - should handle multiple patches for same package", () => {
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"],
-  };
+  const lodash = ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
   const dependencies = {};
 
   const result = findUnusedPatches(patchMap, dependencies);
@@ -225,57 +208,43 @@ test("findUnusedPatches - should return empty array for empty patch map", () => 
 });
 
 test("attachPatchesToAppendix - should attach patches to appendix entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.21" },
-    },
-  };
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  };
+  const dependents = { root: "lodash@^4.17.21" };
+  const lodash41721 = { dependents };
+  const appendix: Appendix = { "lodash@4.17.21": lodash41721 };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  assert.deepStrictEqual(result, {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.21" },
-      patches: ["patches/lodash+4.17.21.patch"],
-    },
-  });
+  const dependents2 = { root: "lodash@^4.17.21" };
+  const patches = ["patches/lodash+4.17.21.patch"];
+  const lodash417212 = { dependents: dependents2, patches };
+  assert.deepStrictEqual(result, { "lodash@4.17.21": lodash417212 });
 });
 
 test("attachPatchesToAppendix - should not modify entries without patches", () => {
-  const appendix: Appendix = {
-    "react@18.0.0": {
-      dependents: { root: "react@^18.0.0" },
-    },
-  };
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  };
+  const dependents = { root: "react@^18.0.0" };
+  const react1800 = { dependents };
+  const appendix: Appendix = { "react@18.0.0": react1800 };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  assert.deepStrictEqual(result, {
-    "react@18.0.0": {
-      dependents: { root: "react@^18.0.0" },
-    },
-  });
+  const dependents2 = { root: "react@^18.0.0" };
+  const react18002 = { dependents: dependents2 };
+  assert.deepStrictEqual(result, { "react@18.0.0": react18002 });
 });
 
 test("attachPatchesToAppendix - should handle multiple appendix entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.21" },
-    },
-    "react@18.0.0": {
-      dependents: { root: "react@^18.0.0" },
-    },
-  };
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-    react: ["patches/react+18.0.0.patch"],
-  };
+  const dependents = { root: "lodash@^4.17.21" };
+  const lodash41721 = { dependents };
+  const dependents2 = { root: "react@^18.0.0" };
+  const react1800 = { dependents: dependents2 };
+  const appendix: Appendix = { "lodash@4.17.21": lodash41721, "react@18.0.0": react1800 };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const react = ["patches/react+18.0.0.patch"];
+  const patchMap = { lodash, react };
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
@@ -293,18 +262,12 @@ test("attachPatchesToAppendix - should return empty appendix for empty input", (
 });
 
 test("attachPatchesToAppendix - should preserve existing appendix properties", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.21" },
-      ledger: {
-        addedDate: "2024-01-01",
-        reason: "Security fix",
-      },
-    },
-  };
-  const patchMap = {
-    lodash: ["patches/lodash+4.17.21.patch"],
-  };
+  const dependents = { root: "lodash@^4.17.21" };
+  const ledger = { addedDate: "2024-01-01", reason: "Security fix" };
+  const lodash41721 = { dependents, ledger };
+  const appendix: Appendix = { "lodash@4.17.21": lodash41721 };
+  const lodash = ["patches/lodash+4.17.21.patch"];
+  const patchMap = { lodash };
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
@@ -316,14 +279,11 @@ test("attachPatchesToAppendix - should preserve existing appendix properties", (
 });
 
 test("attachPatchesToAppendix - should attach patches to scoped package entries", () => {
-  const appendix: Appendix = {
-    "@babel/core@7.20.0": {
-      dependents: { root: "@babel/core@^7.20.0" },
-    },
-  };
-  const patchMap = {
-    "@babel/core": ["patches/@babel+core+7.20.0.patch"],
-  };
+  const dependents = { root: "@babel/core@^7.20.0" };
+  const babelCore7200 = { dependents };
+  const appendix: Appendix = { "@babel/core@7.20.0": babelCore7200 };
+  const babelCore = ["patches/@babel+core+7.20.0.patch"];
+  const patchMap = { "@babel/core": babelCore };
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 

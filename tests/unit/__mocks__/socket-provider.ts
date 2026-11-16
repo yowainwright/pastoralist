@@ -1,5 +1,4 @@
 import type { SecurityAlert } from "../../../src/types";
-
 export const mockSocketAlerts: SecurityAlert[] = [
   {
     package: "react",
@@ -11,27 +10,19 @@ export const mockSocketAlerts: SecurityAlert[] = [
     fixedVersion: "18.0.0",
   },
 ];
-
+const packages = mockSocketAlerts.map((alert) => {
+  const { package: name, version, severity, title, description } = alert;
+  const alerts = [{ type: "vulnerability", severity, title, description }];
+  const packageInfo = { name, version, alerts };
+  return packageInfo;
+});
 export const mockSocketResponse = {
-  packages: mockSocketAlerts.map((alert) => ({
-    name: alert.package,
-    version: alert.version,
-    alerts: [
-      {
-        type: "vulnerability",
-        severity: alert.severity,
-        title: alert.title,
-        description: alert.description,
-      },
-    ],
-  })),
+  packages: packages,
 };
-
 export class MockSocketProvider {
   async checkSecurity(): Promise<SecurityAlert[]> {
     return mockSocketAlerts;
   }
-
   isAvailable(): boolean {
     return false;
   }

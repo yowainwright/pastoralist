@@ -1,59 +1,77 @@
+const distTags = {
+  latest: "4.17.21",
+};
+const value4170 = {};
+const value4171 = {};
+const value41710 = {};
+const value41711 = {};
+const value41715 = {};
+const value41720 = {};
+const value41721 = {};
+const versions2 = {
+  "4.17.0": value4170,
+  "4.17.1": value4171,
+  "4.17.10": value41710,
+  "4.17.11": value41711,
+  "4.17.15": value41715,
+  "4.17.20": value41720,
+  "4.17.21": value41721,
+};
 export const BASE_NPM_PACKAGE_INFO = {
-  "dist-tags": {
-    latest: "4.17.21",
-  },
-  versions: {
-    "4.17.0": {},
-    "4.17.1": {},
-    "4.17.10": {},
-    "4.17.11": {},
-    "4.17.15": {},
-    "4.17.20": {},
-    "4.17.21": {},
-  },
+  "dist-tags": distTags,
+  versions: versions2,
 } as const;
-
+const value500Beta1 = {};
+const value500Alpha1 = {};
 export const PRERELEASE_VERSIONS = {
-  "5.0.0-beta.1": {},
-  "5.0.0-alpha.1": {},
+  "5.0.0-beta.1": value500Beta1,
+  "5.0.0-alpha.1": value500Alpha1,
 } as const;
-
+const value100 = {};
+const value101 = {};
+const value110 = {};
+const value120 = {};
+const value121 = {};
+const value200 = {};
+const value201 = {};
+const value205 = {};
 export const MULTI_MAJOR_VERSIONS = {
-  "1.0.0": {},
-  "1.0.1": {},
-  "1.1.0": {},
-  "1.2.0": {},
-  "1.2.1": {},
-  "2.0.0": {},
-  "2.0.1": {},
-  "2.0.5": {},
+  "1.0.0": value100,
+  "1.0.1": value101,
+  "1.1.0": value110,
+  "1.2.0": value120,
+  "1.2.1": value121,
+  "2.0.0": value200,
+  "2.0.1": value201,
+  "2.0.5": value205,
 } as const;
-
+const value010 = {};
+const value020 = {};
+const value030 = {};
+const value040 = {};
+const value050 = {};
 export const ZERO_MAJOR_VERSIONS = {
-  "0.1.0": {},
-  "0.2.0": {},
-  "0.3.0": {},
-  "0.4.0": {},
-  "0.5.0": {},
+  "0.1.0": value010,
+  "0.2.0": value020,
+  "0.3.0": value030,
+  "0.4.0": value040,
+  "0.5.0": value050,
 } as const;
-
 export const mockOkResponse = (data: unknown) =>
   ({
     ok: true,
     json: () => Promise.resolve(data),
   }) as Response;
-
 export const mockNotFoundResponse = () =>
   ({
     ok: false,
     status: 404,
   }) as Response;
-
-export const createNpmPackageInfo = (latest: string, versions: Record<string, object>) => ({
-  "dist-tags": { latest },
-  versions,
-});
-
+export const createNpmPackageInfo = (latest: string, versions: Record<string, object>) => {
+  const latestDistTags = { latest };
+  const packageInfo = { "dist-tags": latestDistTags, versions };
+  return packageInfo;
+};
 const npmLock = `{
   "lockfileVersion": 3,
   "packages": {
@@ -69,13 +87,11 @@ const npmLock = `{
     "node_modules/lodash": { "version": "4.17.21" }
   }
 }`;
-
 const npmGraphFixtures = {
   name: "npm",
   filename: "package-lock.json",
   content: npmLock,
 };
-
 const aliasContent = npmLock.replace(
   '"node_modules/lodash": {',
   '"node_modules/lodash": { "name": "lodash-fork",',
@@ -85,9 +101,7 @@ const npmAliasFixture = {
   filename: "package-lock.json",
   content: aliasContent,
 };
-
 export { npmGraphFixtures, npmAliasFixture };
-
 const pnpmImporters = `importers:
   .:
     dependencies:
@@ -105,7 +119,6 @@ const pnpmImporters = `importers:
         specifier: ^4.18.0
         version: 4.18.0
 `;
-
 const pnpmPackages = `  express@4.18.0: {}
   express@5.0.0:
     dependencies:
@@ -115,7 +128,6 @@ const pnpmPackages = `  express@4.18.0: {}
       lodash: 4.17.21
   lodash@4.17.21: {}
 `;
-
 const pnpmV9Content = `lockfileVersion: '9.0'\n${pnpmImporters}snapshots:\n${pnpmPackages}`;
 const pnpmV6Content = `lockfileVersion: '6.0'\n${pnpmImporters}packages:\n${pnpmPackages.replace(/^  (?=\S)/gm, "  /")}`;
 const pnpmV5Content = `lockfileVersion: 5.4\n${pnpmImporters}packages:\n${pnpmPackages.replace(/^  ([^ @]+)@/gm, "  /$1/")}`;
@@ -174,9 +186,7 @@ const pnpmGraphFixtures = [
     content: pnpmScopedV9Content,
   },
 ];
-
 export { pnpmGraphFixtures };
-
 const yarnClassic = `express@^4.18.0:
   version "4.18.0"
 
@@ -193,7 +203,6 @@ bridge@1.0.0:
 lodash@4.17.21:
   version "4.17.21"
 `;
-
 const yarnBerry = `__metadata:
   version: 8
 
@@ -215,14 +224,11 @@ const yarnBerry = `__metadata:
 "lodash@npm:4.17.21":
   version: 4.17.21
 `;
-
 const yarnGraphFixtures = [
   { name: "Yarn Classic", filename: "yarn.lock", content: yarnClassic },
   { name: "Yarn Berry", filename: "yarn.lock", content: yarnBerry },
 ];
-
 export { yarnGraphFixtures };
-
 const bunLock = `{
   "lockfileVersion": 1,
   "workspaces": {
@@ -239,11 +245,9 @@ const bunLock = `{
     "lodash": ["lodash@4.17.21", "", {}]
   }
 }`;
-
 const bunGraphFixtures = {
   name: "Bun",
   filename: "bun.lock",
   content: bunLock,
 };
-
 export { bunGraphFixtures };

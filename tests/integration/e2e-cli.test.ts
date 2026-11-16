@@ -4,7 +4,11 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "fs";
 import { dirname, resolve, join } from "path";
 import { action } from "../../src/cli/index";
-import type { KeepConstraint } from "../../src/types";
+import type {
+  KeepConstraint,
+  OSVPartialVulnerability,
+  SecurityOverrideDetail,
+} from "../../src/types";
 import * as packageJSON from "../../src/core/package";
 import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";
@@ -41,23 +45,19 @@ const createFixture = (name: string, content: object) => {
   const dir = join(TEST_DIR, name);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), JSON.stringify(content, null, 2));
-  return join(dir, "package.json");
+  const packagePath = join(dir, "package.json");
+  return packagePath;
 };
 
-const createRemovalFixture = (name: string, content: object): string => {
-  const packagePath = createFixture(name, content);
+const createRemovalFixture = (fixtureName: string, content: object): string => {
+  const packagePath = createFixture(fixtureName, content);
   const config = JSON.parse(readFileSync(packagePath, "utf-8"));
-  const rootPackage = {
-    name: config.name,
-    version: config.version,
-    dependencies: config.dependencies,
-    devDependencies: config.devDependencies,
-    peerDependencies: config.peerDependencies,
-  };
+  const { name, version, dependencies, devDependencies, peerDependencies } = config;
+  const rootPackage = { name, version, dependencies, devDependencies, peerDependencies };
   const packages = createRemovalPackages(rootPackage);
   const lockfile = {
-    name: config.name,
-    version: config.version,
+    name,
+    version,
     lockfileVersion: 3,
     requires: true,
     packages,
@@ -85,17 +85,21 @@ afterEach(() => {
   mock.restore();
 });
 
+const singleOverrideDependencies = {
+  lodash: "^4.17.20",
+};
+const singleOverrideOverrides = {
+  lodash: "4.17.21",
+};
+const singleOverrideManifest = {
+  name: "test-single",
+  version: "1.0.0",
+  dependencies: singleOverrideDependencies,
+  overrides: singleOverrideOverrides,
+};
+
 test("e2e: processes package with single override", async () => {
-  const pkgPath = createFixture("single-override", {
-    name: "test-single",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    overrides: {
-      lodash: "4.17.21",
-    },
-  });
+  const pkgPath = createFixture("single-override", singleOverrideManifest);
 
   const before = new Date().toISOString();
   await action({ path: pkgPath, checkSecurity: false });
@@ -110,19 +114,24 @@ test("e2e: processes package with single override", async () => {
   assert.strictEqual(addedDate >= before && addedDate <= after, true);
 });
 
+const nestedOverrideDependencies = {
+  pg: "^8.13.0",
+};
+const nestedOverrideOverridesPg = {
+  "pg-types": "^4.0.1",
+};
+const nestedOverrideOverrides = {
+  pg: nestedOverrideOverridesPg,
+};
+const nestedOverrideManifest = {
+  name: "test-nested",
+  version: "1.0.0",
+  dependencies: nestedOverrideDependencies,
+  overrides: nestedOverrideOverrides,
+};
+
 test("e2e: processes package with nested override", async () => {
-  const pkgPath = createFixture("nested-override", {
-    name: "test-nested",
-    version: "1.0.0",
-    dependencies: {
-      pg: "^8.13.0",
-    },
-    overrides: {
-      pg: {
-        "pg-types": "^4.0.1",
-      },
-    },
-  });
+  const pkgPath = createFixture("nested-override", nestedOverrideManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -131,21 +140,25 @@ test("e2e: processes package with nested override", async () => {
   assert.notStrictEqual(result.pastoralist.appendix, undefined);
 });
 
+const multipleOverridesDependencies = {
+  lodash: "^4.17.20",
+  express: "^4.18.0",
+  react: "^18.0.0",
+};
+const multipleOverridesOverrides = {
+  lodash: "4.17.21",
+  minimist: "1.2.8",
+  "node-fetch": "2.7.0",
+};
+const multipleOverridesManifest = {
+  name: "test-multiple",
+  version: "1.0.0",
+  dependencies: multipleOverridesDependencies,
+  overrides: multipleOverridesOverrides,
+};
+
 test("e2e: processes package with multiple overrides", async () => {
-  const pkgPath = createFixture("multiple-overrides", {
-    name: "test-multiple",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-      express: "^4.18.0",
-      react: "^18.0.0",
-    },
-    overrides: {
-      lodash: "4.17.21",
-      minimist: "1.2.8",
-      "node-fetch": "2.7.0",
-    },
-  });
+  const pkgPath = createFixture("multiple-overrides", multipleOverridesManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -155,14 +168,17 @@ test("e2e: processes package with multiple overrides", async () => {
   assert.ok(Object.keys(result.pastoralist.appendix).length > 0);
 });
 
+const noOverridesDependencies = {
+  lodash: "^4.17.21",
+};
+const noOverridesManifest = {
+  name: "test-no-overrides",
+  version: "1.0.0",
+  dependencies: noOverridesDependencies,
+};
+
 test("e2e: handles package with no overrides", async () => {
-  const pkgPath = createFixture("no-overrides", {
-    name: "test-no-overrides",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.21",
-    },
-  });
+  const pkgPath = createFixture("no-overrides", noOverridesManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -170,17 +186,21 @@ test("e2e: handles package with no overrides", async () => {
   assert.strictEqual(result.name, "test-no-overrides");
 });
 
+const yarnResolutionsDependencies = {
+  lodash: "^4.17.20",
+};
+const yarnResolutionsResolutions = {
+  lodash: "4.17.21",
+};
+const yarnResolutionsManifest = {
+  name: "test-yarn",
+  version: "1.0.0",
+  dependencies: yarnResolutionsDependencies,
+  resolutions: yarnResolutionsResolutions,
+};
+
 test("e2e: handles yarn resolutions", async () => {
-  const pkgPath = createFixture("yarn-resolutions", {
-    name: "test-yarn",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    resolutions: {
-      lodash: "4.17.21",
-    },
-  });
+  const pkgPath = createFixture("yarn-resolutions", yarnResolutionsManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -188,20 +208,25 @@ test("e2e: handles yarn resolutions", async () => {
   assert.notStrictEqual(result.pastoralist, undefined);
   assert.notStrictEqual(result.pastoralist.appendix, undefined);
 });
+
+const pnpmOverridesDependencies = {
+  lodash: "^4.17.20",
+};
+const pnpmOverridesPnpmOverrides = {
+  lodash: "4.17.21",
+};
+const pnpmOverridesPnpm = {
+  overrides: pnpmOverridesPnpmOverrides,
+};
+const pnpmOverridesManifest = {
+  name: "test-pnpm",
+  version: "1.0.0",
+  dependencies: pnpmOverridesDependencies,
+  pnpm: pnpmOverridesPnpm,
+};
 
 test("e2e: handles pnpm overrides", async () => {
-  const pkgPath = createFixture("pnpm-overrides", {
-    name: "test-pnpm",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    pnpm: {
-      overrides: {
-        lodash: "4.17.21",
-      },
-    },
-  });
+  const pkgPath = createFixture("pnpm-overrides", pnpmOverridesManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -210,19 +235,27 @@ test("e2e: handles pnpm overrides", async () => {
   assert.notStrictEqual(result.pastoralist.appendix, undefined);
 });
 
+const pnpmWorkspaceYamlOverridesDependencies = {
+  lodash: "^4.17.20",
+};
+const pnpmWorkspaceYamlOverridesManifest = {
+  name: "test-pnpm-yaml",
+  version: "1.0.0",
+  packageManager: "pnpm@11.0.0",
+  dependencies: pnpmWorkspaceYamlOverridesDependencies,
+};
+
+const pnpmWorkspaceYamlOverridesWorkspace = '# workspace\noverrides:\n  lodash: "4.17.21"\n';
+
 test("e2e: reports pnpm workspace YAML overrides in dry-run JSON output", async () => {
-  const pkgPath = createFixture("pnpm-workspace-yaml-overrides", {
-    name: "test-pnpm-yaml",
-    version: "1.0.0",
-    packageManager: "pnpm@11.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-  });
+  const pkgPath = createFixture(
+    "pnpm-workspace-yaml-overrides",
+    pnpmWorkspaceYamlOverridesManifest,
+  );
   const root = resolve(pkgPath, "..");
   const workspacePath = join(root, "pnpm-workspace.yaml");
-  const workspace = '# workspace\noverrides:\n  lodash: "4.17.21"\n';
-  writeFileSync(workspacePath, workspace);
+
+  writeFileSync(workspacePath, pnpmWorkspaceYamlOverridesWorkspace);
 
   const result = await action({
     path: pkgPath,
@@ -235,26 +268,32 @@ test("e2e: reports pnpm workspace YAML overrides in dry-run JSON output", async 
 
   assert.strictEqual(result.overrideCount, 1);
   assert.deepStrictEqual(result.appliedOverrides, { lodash: "4.17.21" });
-  assert.strictEqual(readFileSync(workspacePath, "utf8"), workspace);
+  assert.strictEqual(readFileSync(workspacePath, "utf8"), pnpmWorkspaceYamlOverridesWorkspace);
 });
 
+const existingConfigDependencies = {
+  lodash: "^4.17.20",
+};
+const existingConfigOverrides = {
+  lodash: "4.17.21",
+};
+const existingConfigConfigSecurity = {
+  enabled: false,
+  provider: "osv",
+};
+const existingConfigConfig = {
+  security: existingConfigConfigSecurity,
+};
+const existingConfigManifest = {
+  name: "test-existing",
+  version: "1.0.0",
+  dependencies: existingConfigDependencies,
+  overrides: existingConfigOverrides,
+  pastoralist: existingConfigConfig,
+};
+
 test("e2e: preserves existing pastoralist config", async () => {
-  const pkgPath = createFixture("existing-config", {
-    name: "test-existing",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    overrides: {
-      lodash: "4.17.21",
-    },
-    pastoralist: {
-      security: {
-        enabled: false,
-        provider: "osv",
-      },
-    },
-  });
+  const pkgPath = createFixture("existing-config", existingConfigManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -264,16 +303,23 @@ test("e2e: preserves existing pastoralist config", async () => {
   assert.strictEqual(result.pastoralist.security.provider, "osv");
 });
 
+const externalJsonLedgerDependencies = { lodash: "^4.17.20" };
+const externalJsonLedgerOverrides = { lodash: "4.17.21" };
+const externalJsonLedgerManifest = {
+  name: "test-external-json-ledger",
+  version: "1.0.0",
+  dependencies: externalJsonLedgerDependencies,
+  overrides: externalJsonLedgerOverrides,
+};
+
+const externalJsonLedgerSecurity = { enabled: false, provider: "osv" };
+
 test("e2e: writes the appendix back to an external JSON config", async () => {
-  const pkgPath = createFixture("external-json-ledger", {
-    name: "test-external-json-ledger",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-  });
+  const pkgPath = createFixture("external-json-ledger", externalJsonLedgerManifest);
   const root = resolve(pkgPath, "..");
   const configPath = join(root, ".pastoralistrc");
-  const externalConfig = { security: { enabled: false, provider: "osv" } };
+
+  const externalConfig = { security: externalJsonLedgerSecurity };
   writeFileSync(configPath, JSON.stringify(externalConfig, null, 2));
 
   await action({ path: pkgPath, root, checkSecurity: false });
@@ -292,60 +338,79 @@ test("e2e: writes the appendix back to an external JSON config", async () => {
   assert.strictEqual(readFileSync(configPath, "utf8"), firstWrite);
 });
 
+const javascriptConfigLedgerDependencies = { lodash: "^4.17.20" };
+const javascriptConfigLedgerOverrides = { lodash: "4.17.21" };
+const javascriptConfigLedgerManifest = {
+  name: "test-javascript-config-ledger",
+  version: "1.0.0",
+  dependencies: javascriptConfigLedgerDependencies,
+  overrides: javascriptConfigLedgerOverrides,
+};
+
+const javascriptConfigLedgerSource =
+  'module.exports = { security: { enabled: false, provider: "osv" } };\n';
+
 test("e2e: keeps JavaScript config read-only and writes the appendix to package.json", async () => {
-  const pkgPath = createFixture("javascript-config-ledger", {
-    name: "test-javascript-config-ledger",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-  });
+  const pkgPath = createFixture("javascript-config-ledger", javascriptConfigLedgerManifest);
   const root = resolve(pkgPath, "..");
   const configPath = join(root, "pastoralist.config.cjs");
-  const source = 'module.exports = { security: { enabled: false, provider: "osv" } };\n';
-  writeFileSync(configPath, source);
+
+  writeFileSync(configPath, javascriptConfigLedgerSource);
 
   await action({ path: pkgPath, root, checkSecurity: false });
 
   const packageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
-  assert.strictEqual(readFileSync(configPath, "utf8"), source);
+  assert.strictEqual(readFileSync(configPath, "utf8"), javascriptConfigLedgerSource);
   assert.notStrictEqual(packageJson.pastoralist.appendix["lodash@4.17.21"], undefined);
 });
 
+const javascriptConfigExternalLedgerDependencies = { lodash: "^4.17.20" };
+const javascriptConfigExternalLedgerOverrides = { lodash: "4.17.21" };
+const javascriptConfigExternalLedgerManifest = {
+  name: "test-javascript-config-external-ledger",
+  version: "1.0.0",
+  dependencies: javascriptConfigExternalLedgerDependencies,
+  overrides: javascriptConfigExternalLedgerOverrides,
+};
+
+const javascriptConfigExternalLedgerSource =
+  'module.exports = { appendixSource: "ledger.json", security: { enabled: false } };\n';
+
 test("e2e: honors an explicit appendix source for JavaScript config", async () => {
-  const pkgPath = createFixture("javascript-config-external-ledger", {
-    name: "test-javascript-config-external-ledger",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-  });
+  const pkgPath = createFixture(
+    "javascript-config-external-ledger",
+    javascriptConfigExternalLedgerManifest,
+  );
   const root = resolve(pkgPath, "..");
   const configPath = join(root, "pastoralist.config.cjs");
   const appendixPath = join(root, "ledger.json");
-  const source =
-    'module.exports = { appendixSource: "ledger.json", security: { enabled: false } };\n';
-  writeFileSync(configPath, source);
+
+  writeFileSync(configPath, javascriptConfigExternalLedgerSource);
   writeFileSync(appendixPath, JSON.stringify({ checkSecurity: false }, null, 2));
 
   await action({ path: pkgPath, root, checkSecurity: false });
 
   const packageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
   const appendixConfig = JSON.parse(readFileSync(appendixPath, "utf8"));
-  assert.strictEqual(readFileSync(configPath, "utf8"), source);
+  assert.strictEqual(readFileSync(configPath, "utf8"), javascriptConfigExternalLedgerSource);
   assert.strictEqual(packageJson.pastoralist, undefined);
   assert.strictEqual(appendixConfig.checkSecurity, false);
   assert.notStrictEqual(appendixConfig.appendix["lodash@4.17.21"], undefined);
 });
 
+const dryRunDependencies = {
+  lodash: "^4.17.20",
+};
+const dryRunOverrides = {
+  lodash: "4.17.21",
+};
+
 test("e2e: dry-run does not modify package.json", async () => {
   const originalContent = {
     name: "test-dry-run",
     version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    overrides: {
-      lodash: "4.17.21",
-    },
+    dependencies: dryRunDependencies,
+    overrides: dryRunOverrides,
   };
 
   const pkgPath = createFixture("dry-run", originalContent);
@@ -357,33 +422,40 @@ test("e2e: dry-run does not modify package.json", async () => {
   assert.strictEqual(afterText, originalText);
 });
 
+const devDepsDevDependencies = {
+  typescript: "^5.0.0",
+  jest: "^29.0.0",
+};
+const devDepsOverrides = {
+  "ansi-regex": "5.0.1",
+};
+const devDepsManifest = {
+  name: "test-dev-deps",
+  version: "1.0.0",
+  devDependencies: devDepsDevDependencies,
+  overrides: devDepsOverrides,
+};
+
 test("e2e: handles devDependencies overrides", async () => {
-  const pkgPath = createFixture("dev-deps", {
-    name: "test-dev-deps",
-    version: "1.0.0",
-    devDependencies: {
-      typescript: "^5.0.0",
-      jest: "^29.0.0",
-    },
-    overrides: {
-      "ansi-regex": "5.0.1",
-    },
-  });
+  const pkgPath = createFixture("dev-deps", devDepsManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
   assert.notStrictEqual(result.pastoralist, undefined);
 });
+
+const emptyDepsOverrides = {
+  lodash: "4.17.21",
+};
+const emptyDepsManifest = {
+  name: "test-empty",
+  version: "1.0.0",
+  overrides: emptyDepsOverrides,
+};
 
 test("e2e: handles empty dependencies", async () => {
-  const pkgPath = createFixture("empty-deps", {
-    name: "test-empty",
-    version: "1.0.0",
-    overrides: {
-      lodash: "4.17.21",
-    },
-  });
+  const pkgPath = createFixture("empty-deps", emptyDepsManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -391,31 +463,40 @@ test("e2e: handles empty dependencies", async () => {
   assert.notStrictEqual(result.pastoralist, undefined);
 });
 
+const existingAppendixDependencies = {
+  lodash: "^4.17.20",
+  express: "^4.18.0",
+};
+const existingAppendixOverrides = {
+  lodash: "4.17.21",
+  minimist: "1.2.8",
+};
+const existingAppendixLodashDependents = {
+  "test-existing-appendix": "lodash@^4.17.20",
+};
+const existingAppendixLodashLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+};
+const existingAppendixLodash = {
+  dependents: existingAppendixLodashDependents,
+  ledger: existingAppendixLodashLedger,
+};
+const existingAppendixAppendix = {
+  "lodash@4.17.21": existingAppendixLodash,
+};
+const existingAppendixConfig = {
+  appendix: existingAppendixAppendix,
+};
+const existingAppendixManifest = {
+  name: "test-existing-appendix",
+  version: "1.0.0",
+  dependencies: existingAppendixDependencies,
+  overrides: existingAppendixOverrides,
+  pastoralist: existingAppendixConfig,
+};
+
 test("e2e: processes package with existing appendix", async () => {
-  const pkgPath = createFixture("existing-appendix", {
-    name: "test-existing-appendix",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-      express: "^4.18.0",
-    },
-    overrides: {
-      lodash: "4.17.21",
-      minimist: "1.2.8",
-    },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: {
-            "test-existing-appendix": "lodash@^4.17.20",
-          },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createFixture("existing-appendix", existingAppendixManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -428,25 +509,37 @@ test("e2e: processes package with existing appendix", async () => {
   );
 });
 
+const keepTrueRoundtripDependencies = { lodash: "^4.17.20" };
+const keepTrueRoundtripOverrides = { lodash: "4.17.21" };
+const keepTrueRoundtripLodashDependents = {
+  "test-keep-true": "lodash@^4.17.20",
+};
+const keepTrueRoundtripLodashLedgerCves = ["CVE-2021-23337"];
+const keepTrueRoundtripLodashLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  keep: true,
+  cves: keepTrueRoundtripLodashLedgerCves,
+};
+const keepTrueRoundtripLodash = {
+  dependents: keepTrueRoundtripLodashDependents,
+  ledger: keepTrueRoundtripLodashLedger,
+};
+const keepTrueRoundtripAppendix = {
+  "lodash@4.17.21": keepTrueRoundtripLodash,
+};
+const keepTrueRoundtripConfig = {
+  appendix: keepTrueRoundtripAppendix,
+};
+const keepTrueRoundtripManifest = {
+  name: "test-keep-true",
+  version: "1.0.0",
+  dependencies: keepTrueRoundtripDependencies,
+  overrides: keepTrueRoundtripOverrides,
+  pastoralist: keepTrueRoundtripConfig,
+};
+
 test("e2e: preserves keep: true through write round-trip", async () => {
-  const pkgPath = createFixture("keep-true-roundtrip", {
-    name: "test-keep-true",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: { "test-keep-true": "lodash@^4.17.20" },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            keep: true,
-            cves: ["CVE-2021-23337"],
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createFixture("keep-true-roundtrip", keepTrueRoundtripManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -457,29 +550,38 @@ test("e2e: preserves keep: true through write round-trip", async () => {
   assert.deepStrictEqual(entry.ledger.cves, ["CVE-2021-23337"]);
 });
 
-test("e2e: preserves keep: KeepConstraint through write round-trip", async () => {
-  const keepConstraint: KeepConstraint = {
-    reason: "awaiting upstream patch",
-    untilVersion: "4.18.0",
-  };
+const keepConstraintRoundtripKeepConstraint: KeepConstraint = {
+  reason: "awaiting upstream patch",
+  untilVersion: "4.18.0",
+};
+const keepConstraintRoundtripDependencies = { lodash: "^4.17.20" };
+const keepConstraintRoundtripOverrides = { lodash: "4.17.21" };
+const keepConstraintRoundtripDependents = { "test-keep-constraint": "lodash@^4.17.20" };
+const keepConstraintRoundtripCves = ["CVE-2021-23337"];
 
+const keepConstraintLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  keep: keepConstraintRoundtripKeepConstraint,
+  cves: keepConstraintRoundtripCves,
+};
+const keepConstraintEntry = {
+  dependents: keepConstraintRoundtripDependents,
+  ledger: keepConstraintLedger,
+};
+const keepConstraintAppendix = {
+  "lodash@4.17.21": keepConstraintEntry,
+};
+const keepConstraintConfig = {
+  appendix: keepConstraintAppendix,
+};
+
+test("e2e: preserves keep: KeepConstraint through write round-trip", async () => {
   const pkgPath = createFixture("keep-constraint-roundtrip", {
     name: "test-keep-constraint",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: { "test-keep-constraint": "lodash@^4.17.20" },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            keep: keepConstraint,
-            cves: ["CVE-2021-23337"],
-          },
-        },
-      },
-    },
+    dependencies: keepConstraintRoundtripDependencies,
+    overrides: keepConstraintRoundtripOverrides,
+    pastoralist: keepConstraintConfig,
   });
 
   await action({ path: pkgPath, checkSecurity: false });
@@ -492,25 +594,37 @@ test("e2e: preserves keep: KeepConstraint through write round-trip", async () =>
   assert.strictEqual(keep.untilVersion, "4.18.0");
 });
 
+const removeUnusedKeepTrueDependencies = { lodash: "^4.17.20" };
+const removeUnusedKeepTrueOverrides = { lodash: "4.17.21", "orphan-pkg": "2.0.0" };
+const removeUnusedKeepTrueOrphanDependents = {
+  "test-remove-keep": "orphan-pkg (unused override)",
+};
+const removeUnusedKeepTrueOrphanLedgerCves = ["CVE-2024-0001"];
+const removeUnusedKeepTrueOrphanLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  keep: true,
+  cves: removeUnusedKeepTrueOrphanLedgerCves,
+};
+const removeUnusedKeepTrueOrphan = {
+  dependents: removeUnusedKeepTrueOrphanDependents,
+  ledger: removeUnusedKeepTrueOrphanLedger,
+};
+const removeUnusedKeepTrueAppendix = {
+  "orphan-pkg@2.0.0": removeUnusedKeepTrueOrphan,
+};
+const removeUnusedKeepTrueConfig = {
+  appendix: removeUnusedKeepTrueAppendix,
+};
+const removeUnusedKeepTrueManifest = {
+  name: "test-remove-keep",
+  version: "1.0.0",
+  dependencies: removeUnusedKeepTrueDependencies,
+  overrides: removeUnusedKeepTrueOverrides,
+  pastoralist: removeUnusedKeepTrueConfig,
+};
+
 test("e2e: removeUnused skips entries with keep: true", async () => {
-  const pkgPath = createRemovalFixture("remove-unused-keep-true", {
-    name: "test-remove-keep",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21", "orphan-pkg": "2.0.0" },
-    pastoralist: {
-      appendix: {
-        "orphan-pkg@2.0.0": {
-          dependents: { "test-remove-keep": "orphan-pkg (unused override)" },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            keep: true,
-            cves: ["CVE-2024-0001"],
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createRemovalFixture("remove-unused-keep-true", removeUnusedKeepTrueManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -518,27 +632,43 @@ test("e2e: removeUnused skips entries with keep: true", async () => {
   assert.strictEqual(result.overrides?.["orphan-pkg"], "2.0.0");
   assert.notStrictEqual(result.pastoralist.appendix["orphan-pkg@2.0.0"], undefined);
 });
+
+const removeUnusedKeepConstraintDependencies = { lodash: "^4.17.20" };
+const removeUnusedKeepConstraintOverrides = { lodash: "4.17.21", "orphan-pkg": "2.0.0" };
+const removeUnusedKeepConstraintOrphanDependents = {
+  "test-remove-keep-constraint": "orphan-pkg (unused override)",
+};
+const removeUnusedKeepConstraintOrphanLedgerKeep = {
+  reason: "pending security review",
+  untilVersion: "3.0.0",
+};
+const removeUnusedKeepConstraintOrphanLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  keep: removeUnusedKeepConstraintOrphanLedgerKeep,
+};
+const removeUnusedKeepConstraintOrphan = {
+  dependents: removeUnusedKeepConstraintOrphanDependents,
+  ledger: removeUnusedKeepConstraintOrphanLedger,
+};
+const removeUnusedKeepConstraintAppendix = {
+  "orphan-pkg@2.0.0": removeUnusedKeepConstraintOrphan,
+};
+const removeUnusedKeepConstraintConfig = {
+  appendix: removeUnusedKeepConstraintAppendix,
+};
+const removeUnusedKeepConstraintManifest = {
+  name: "test-remove-keep-constraint",
+  version: "1.0.0",
+  dependencies: removeUnusedKeepConstraintDependencies,
+  overrides: removeUnusedKeepConstraintOverrides,
+  pastoralist: removeUnusedKeepConstraintConfig,
+};
 
 test("e2e: removeUnused skips entries with keep: KeepConstraint", async () => {
-  const pkgPath = createRemovalFixture("remove-unused-keep-constraint", {
-    name: "test-remove-keep-constraint",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21", "orphan-pkg": "2.0.0" },
-    pastoralist: {
-      appendix: {
-        "orphan-pkg@2.0.0": {
-          dependents: {
-            "test-remove-keep-constraint": "orphan-pkg (unused override)",
-          },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            keep: { reason: "pending security review", untilVersion: "3.0.0" },
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createRemovalFixture(
+    "remove-unused-keep-constraint",
+    removeUnusedKeepConstraintManifest,
+  );
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -547,28 +677,34 @@ test("e2e: removeUnused skips entries with keep: KeepConstraint", async () => {
   assert.notStrictEqual(result.pastoralist.appendix["orphan-pkg@2.0.0"], undefined);
 });
 
-test("e2e: security override details populate cveDetails and vulnerableRange in ledger", async () => {
-  const pkgPath = createFixture("cve-details-ledger", {
-    name: "test-cve-details",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-  });
+const cveDetailsLedgerDependencies = { lodash: "^4.17.20" };
+const cveDetailsLedgerOverrides = { lodash: "4.17.21" };
+const cveDetailsLedgerManifest = {
+  name: "test-cve-details",
+  version: "1.0.0",
+  dependencies: cveDetailsLedgerDependencies,
+  overrides: cveDetailsLedgerOverrides,
+};
 
+const cveDetailsLedgerCves = ["CVE-2021-23337", "CVE-2020-28500"];
+const cveSecurityDetails: SecurityOverrideDetail[] = [
+  {
+    packageName: "lodash",
+    reason: "Prototype pollution",
+    cves: cveDetailsLedgerCves,
+    severity: "high",
+    vulnerableRange: "< 4.17.21",
+    patchedVersion: "4.17.21",
+    url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+  },
+];
+
+test("e2e: security override details populate cveDetails and vulnerableRange in ledger", async () => {
+  const pkgPath = createFixture("cve-details-ledger", cveDetailsLedgerManifest);
   await action({
     path: pkgPath,
     checkSecurity: false,
-    securityOverrideDetails: [
-      {
-        packageName: "lodash",
-        reason: "Prototype pollution",
-        cves: ["CVE-2021-23337", "CVE-2020-28500"],
-        severity: "high",
-        vulnerableRange: "< 4.17.21",
-        patchedVersion: "4.17.21",
-        url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
-      },
-    ],
+    securityOverrideDetails: cveSecurityDetails,
     securityProvider: "osv",
   });
 
@@ -585,80 +721,122 @@ test("e2e: security override details populate cveDetails and vulnerableRange in 
   assert.strictEqual(entry.ledger.securityProvider, "osv");
 });
 
-test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and patchedVersion in written ledger", async () => {
-  const pkgPath = createFixture("scan-pipeline-seam", {
-    name: "test-scan-seam",
-    version: "1.0.0",
-    dependencies: { parent: "1.0.0" },
-  });
+const scanPipelineSeamDependencies = { parent: "1.0.0" };
+const scanPipelineSeamManifest = {
+  name: "test-scan-seam",
+  version: "1.0.0",
+  dependencies: scanPipelineSeamDependencies,
+};
+
+const scanParentDependencies = { lodash: "^4.17.0" };
+const scanPipelineSeamParent = {
+  name: "parent",
+  version: "1.0.0",
+  dependencies: scanParentDependencies,
+};
+const scanParentVulnerabilities: OSVPartialVulnerability[] = [];
+const scanLodashVulnerabilities = [{ id: "GHSA-p6mc-m468-83gw" }];
+const scanBatchResults = [
+  { vulns: scanParentVulnerabilities },
+  { vulns: scanLodashVulnerabilities },
+];
+const scanPipelineSeamMockOSVBatchResponse = {
+  results: scanBatchResults,
+};
+const scanAdvisoryAliases = ["CVE-2021-23337"];
+const scanAffectedPackage = { name: "lodash", ecosystem: "npm" };
+const scanVersionEvents = [{ introduced: "0" }, { fixed: "4.17.21" }];
+const scanVersionRanges = [
+  {
+    type: "SEMVER",
+    events: scanVersionEvents,
+  },
+];
+const scanAffectedPackages = [
+  {
+    package: scanAffectedPackage,
+    ranges: scanVersionRanges,
+  },
+];
+const scanAdvisoryReferences = [
+  {
+    type: "ADVISORY",
+    url: "https://github.com/advisories/GHSA-p6mc-m468-83gw",
+  },
+];
+const scanAdvisoryMetadata = { severity: "HIGH" };
+const scanPipelineSeamMockOSVVulnResponse = {
+  id: "GHSA-p6mc-m468-83gw",
+  summary: "Prototype Pollution in lodash",
+  details: "lodash prior to 4.17.21 is vulnerable",
+  aliases: scanAdvisoryAliases,
+  affected: scanAffectedPackages,
+  references: scanAdvisoryReferences,
+  database_specific: scanAdvisoryMetadata,
+};
+const distTags = { latest: "4.17.21" };
+const patchedLodashVersion = {};
+const currentLodashVersion = {};
+const vulnerableLodashVersion = {};
+const scanRegistryVersions = {
+  "4.17.21": patchedLodashVersion,
+  "4.17.20": currentLodashVersion,
+  "4.17.15": vulnerableLodashVersion,
+};
+const scanPipelineSeamMockNpmResponse = {
+  "dist-tags": distTags,
+  versions: scanRegistryVersions,
+};
+
+const scanRootDependencies = { parent: "1.0.0" };
+const scanRootPackage = { dependencies: scanRootDependencies };
+const scanLodashPackage = { version: "4.17.15" };
+const scanPackages = {
+  "": scanRootPackage,
+  "node_modules/parent": scanPipelineSeamParent,
+  "node_modules/lodash": scanLodashPackage,
+};
+const scanLockfile = { lockfileVersion: 3, packages: scanPackages };
+
+const createScanPipelineFixture = () => {
+  const pkgPath = createFixture("scan-pipeline-seam", scanPipelineSeamManifest);
   const root = dirname(pkgPath);
-  const parent = { name: "parent", version: "1.0.0", dependencies: { lodash: "^4.17.0" } };
   mkdirSync(join(root, "node_modules/parent"), { recursive: true });
-  writeFileSync(join(root, "node_modules/parent/package.json"), JSON.stringify(parent));
   writeFileSync(
-    join(root, "package-lock.json"),
-    JSON.stringify({
-      lockfileVersion: 3,
-      packages: {
-        "": { dependencies: { parent: "1.0.0" } },
-        "node_modules/parent": parent,
-        "node_modules/lodash": { version: "4.17.15" },
-      },
-    }),
+    join(root, "node_modules/parent/package.json"),
+    JSON.stringify(scanPipelineSeamParent),
   );
-  const mockOSVBatchResponse = {
-    results: [{ vulns: [] }, { vulns: [{ id: "GHSA-p6mc-m468-83gw" }] }],
-  };
-  const mockOSVVulnResponse = {
-    id: "GHSA-p6mc-m468-83gw",
-    summary: "Prototype Pollution in lodash",
-    details: "lodash prior to 4.17.21 is vulnerable",
-    aliases: ["CVE-2021-23337"],
-    affected: [
-      {
-        package: { name: "lodash", ecosystem: "npm" },
-        ranges: [
-          {
-            type: "SEMVER",
-            events: [{ introduced: "0" }, { fixed: "4.17.21" }],
-          },
-        ],
-      },
-    ],
-    references: [
-      {
-        type: "ADVISORY",
-        url: "https://github.com/advisories/GHSA-p6mc-m468-83gw",
-      },
-    ],
-    database_specific: { severity: "HIGH" },
-  };
+  writeFileSync(join(root, "package-lock.json"), JSON.stringify(scanLockfile));
+  return pkgPath;
+};
 
-  const mockNpmResponse = {
-    "dist-tags": { latest: "4.17.21" },
-    versions: { "4.17.21": {}, "4.17.20": {}, "4.17.15": {} },
+const mockJsonResponse = (payload: object) => {
+  const json = () => {
+    const pending = Promise.resolve(payload);
+    return pending;
   };
+  const response = { ok: true, json } as Response;
+  const pending = Promise.resolve(response);
+  return pending;
+};
 
-  const originalFetch = global.fetch;
-  global.fetch = mock((url: string) => {
-    if (new URL(url).hostname === "registry.npmjs.org") {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockNpmResponse),
-      } as Response);
-    }
-    if ((url as string).includes("querybatch")) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockOSVBatchResponse),
-      } as Response);
-    }
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(mockOSVVulnResponse),
-    } as Response);
-  });
+const fetchScanPipelineResponse = (url: string) => {
+  const isRegistry = new URL(url).hostname === "registry.npmjs.org";
+  if (isRegistry) {
+    const response = mockJsonResponse(scanPipelineSeamMockNpmResponse);
+    return response;
+  }
+  const isBatch = url.includes("querybatch");
+  const payload = isBatch
+    ? scanPipelineSeamMockOSVBatchResponse
+    : scanPipelineSeamMockOSVVulnResponse;
+  const response = mockJsonResponse(payload);
+  return response;
+};
 
+const scanPipelineFixture = async (pkgPath: string) => {
+  const { fetch: originalFetch } = global;
+  global.fetch = mock(fetchScanPipelineResponse);
   try {
     await action({
       path: pkgPath,
@@ -670,6 +848,11 @@ test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and
   } finally {
     global.fetch = originalFetch;
   }
+};
+
+test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and patchedVersion in written ledger", async () => {
+  const pkgPath = createScanPipelineFixture();
+  await scanPipelineFixture(pkgPath);
 
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
   const appendix = result.pastoralist?.appendix || {};
@@ -687,24 +870,35 @@ test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and
   assert.strictEqual(entry.ledger.severity, "high");
 });
 
+const legacyCveNormalizeDependencies = { lodash: "^4.17.20" };
+const legacyCveNormalizeOverrides = { lodash: "4.17.21" };
+const legacyCveNormalizeLodashDependents = {
+  "test-legacy-cve": "lodash@^4.17.20",
+};
+const legacyCveNormalizeLodashLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  cve: "CVE-2021-23337",
+};
+const legacyCveNormalizeLodash = {
+  dependents: legacyCveNormalizeLodashDependents,
+  ledger: legacyCveNormalizeLodashLedger,
+};
+const legacyCveNormalizeAppendix = {
+  "lodash@4.17.21": legacyCveNormalizeLodash,
+};
+const legacyCveNormalizeConfig = {
+  appendix: legacyCveNormalizeAppendix,
+};
+const legacyCveNormalizeManifest = {
+  name: "test-legacy-cve",
+  version: "1.0.0",
+  dependencies: legacyCveNormalizeDependencies,
+  overrides: legacyCveNormalizeOverrides,
+  pastoralist: legacyCveNormalizeConfig,
+};
+
 test("e2e: normalizes legacy cve string to cves array on round-trip", async () => {
-  const pkgPath = createFixture("legacy-cve-normalize", {
-    name: "test-legacy-cve",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: { "test-legacy-cve": "lodash@^4.17.20" },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            cve: "CVE-2021-23337",
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createFixture("legacy-cve-normalize", legacyCveNormalizeManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -714,13 +908,17 @@ test("e2e: normalizes legacy cve string to cves array on round-trip", async () =
   assert.strictEqual(entry.ledger.cve, undefined);
 });
 
+const orphanedOverrideDependencies = { lodash: "^4.17.20" };
+const orphanedOverrideOverrides = { lodash: "4.17.21", "phantom-pkg": "2.0.0" };
+const orphanedOverrideManifest = {
+  name: "test-orphaned",
+  version: "1.0.0",
+  dependencies: orphanedOverrideDependencies,
+  overrides: orphanedOverrideOverrides,
+};
+
 test("e2e: orphaned override gets removed with removeUnused", async () => {
-  const pkgPath = createRemovalFixture("orphaned-override", {
-    name: "test-orphaned",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21", "phantom-pkg": "2.0.0" },
-  });
+  const pkgPath = createRemovalFixture("orphaned-override", orphanedOverrideManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -729,14 +927,18 @@ test("e2e: orphaned override gets removed with removeUnused", async () => {
   assert.strictEqual(result.pastoralist?.appendix?.["phantom-pkg@2.0.0"], undefined);
 });
 
+const fixture24061Dependencies = { lodash: "^4.17.20" };
+const fixture24061Overrides = { lodash: "4.17.21", "phantom-pkg": "2.0.0" };
+const fixture24061Manifest = {
+  name: "test-incomplete-lock",
+  version: "1.0.0",
+  dependencies: fixture24061Dependencies,
+  overrides: fixture24061Overrides,
+};
+
 ["direct", "transitive"].forEach((missingDependency) => {
   test(`e2e: removeUnused preserves overrides when a ${missingDependency} lock entry is missing`, async () => {
-    const pkgPath = createRemovalFixture(`incomplete-${missingDependency}`, {
-      name: "test-incomplete-lock",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.20" },
-      overrides: { lodash: "4.17.21", "phantom-pkg": "2.0.0" },
-    });
+    const pkgPath = createRemovalFixture(`incomplete-${missingDependency}`, fixture24061Manifest);
     const lockPath = join(dirname(pkgPath), "package-lock.json");
     const lockfile = JSON.parse(readFileSync(lockPath, "utf-8"));
     if (missingDependency === "direct") {
@@ -808,13 +1010,17 @@ test("e2e: security verification cannot authorize removal with incomplete depend
   );
 });
 
+const transitiveCleanupDependencies = { express: "^4.18.0" };
+const transitiveCleanupOverrides = { qs: "6.11.0", orphan: "1.0.0" };
+const transitiveCleanupManifest = {
+  name: "test-transitive-cleanup",
+  version: "1.0.0",
+  dependencies: transitiveCleanupDependencies,
+  overrides: transitiveCleanupOverrides,
+};
+
 test("e2e: removeUnused keeps a resolved transitive override while removing an orphan", async () => {
-  const pkgPath = createRemovalFixture("transitive-cleanup", {
-    name: "test-transitive-cleanup",
-    version: "1.0.0",
-    dependencies: { express: "^4.18.0" },
-    overrides: { qs: "6.11.0", orphan: "1.0.0" },
-  });
+  const pkgPath = createRemovalFixture("transitive-cleanup", transitiveCleanupManifest);
   const lockPath = join(dirname(pkgPath), "package-lock.json");
   const lockfile = JSON.parse(readFileSync(lockPath, "utf-8"));
   lockfile.packages["node_modules/express"].dependencies = { qs: "^6.0.0" };
@@ -877,6 +1083,7 @@ const createWorkspaceProofFixture = (usage: string) => {
 ["missing", "invalid", "used", "unused"].forEach((workspaceUsage) => {
   test(`e2e: root cleanup accounts for ${workspaceUsage} dependencies in an unselected workspace`, async () => {
     const pkgPath = createWorkspaceProofFixture(workspaceUsage);
+
     const depPaths: string[] = [];
     await action({ path: pkgPath, checkSecurity: false, removeUnused: true, depPaths });
     const result = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -1001,14 +1208,19 @@ test("e2e: pnpm scoped peer context preserves used overrides and removes orphans
   );
 });
 
+const devDepOverrideKeptDependencies = { express: "^4.18.0" };
+const devDepOverrideKeptDevDependencies = { qs: "^6.0.0" };
+const devDepOverrideKeptOverrides = { express: "4.18.2", qs: "6.11.0" };
+const devDepOverrideKeptManifest = {
+  name: "test-dev-dep-kept",
+  version: "1.0.0",
+  dependencies: devDepOverrideKeptDependencies,
+  devDependencies: devDepOverrideKeptDevDependencies,
+  overrides: devDepOverrideKeptOverrides,
+};
+
 test("e2e: override for devDependency package kept with removeUnused", async () => {
-  const pkgPath = createRemovalFixture("dev-dep-override-kept", {
-    name: "test-dev-dep-kept",
-    version: "1.0.0",
-    dependencies: { express: "^4.18.0" },
-    devDependencies: { qs: "^6.0.0" },
-    overrides: { express: "4.18.2", qs: "6.11.0" },
-  });
+  const pkgPath = createRemovalFixture("dev-dep-override-kept", devDepOverrideKeptManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -1016,16 +1228,21 @@ test("e2e: override for devDependency package kept with removeUnused", async () 
   assert.notStrictEqual(result.overrides?.["qs"], undefined);
 });
 
+const nestedMissingParentDependencies = { lodash: "^4.17.20" };
+const nestedMissingParentOverridesPg = { "pg-types": "^4.0.1" };
+const nestedMissingParentOverrides = {
+  lodash: "4.17.21",
+  pg: nestedMissingParentOverridesPg,
+};
+const nestedMissingParentManifest = {
+  name: "test-nested-missing",
+  version: "1.0.0",
+  dependencies: nestedMissingParentDependencies,
+  overrides: nestedMissingParentOverrides,
+};
+
 test("e2e: nested override survives when parent is missing from deps", async () => {
-  const pkgPath = createFixture("nested-missing-parent", {
-    name: "test-nested-missing",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: {
-      lodash: "4.17.21",
-      pg: { "pg-types": "^4.0.1" },
-    },
-  });
+  const pkgPath = createFixture("nested-missing-parent", nestedMissingParentManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -1034,15 +1251,20 @@ test("e2e: nested override survives when parent is missing from deps", async () 
   assert.strictEqual(result.overrides?.pg?.["pg-types"], "^4.0.1");
 });
 
+const nestedParentExistsDependencies = { pg: "^8.13.0" };
+const nestedParentExistsOverridesPg = { "pg-types": "^4.0.1" };
+const nestedParentExistsOverrides = {
+  pg: nestedParentExistsOverridesPg,
+};
+const nestedParentExistsManifest = {
+  name: "test-nested-parent",
+  version: "1.0.0",
+  dependencies: nestedParentExistsDependencies,
+  overrides: nestedParentExistsOverrides,
+};
+
 test("e2e: nested override and appendix entry preserved when parent in deps", async () => {
-  const pkgPath = createFixture("nested-parent-exists", {
-    name: "test-nested-parent",
-    version: "1.0.0",
-    dependencies: { pg: "^8.13.0" },
-    overrides: {
-      pg: { "pg-types": "^4.0.1" },
-    },
-  });
+  const pkgPath = createFixture("nested-parent-exists", nestedParentExistsManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
 
@@ -1051,18 +1273,22 @@ test("e2e: nested override and appendix entry preserved when parent in deps", as
   assert.notStrictEqual(result.pastoralist?.appendix, undefined);
 });
 
+const partialCleanupDependencies = { lodash: "^4.17.20", express: "^4.18.0" };
+const partialCleanupOverrides = {
+  lodash: "4.17.21",
+  express: "4.18.2",
+  "stale-a": "1.0.0",
+  "stale-b": "2.0.0",
+};
+const partialCleanupManifest = {
+  name: "test-partial",
+  version: "1.0.0",
+  dependencies: partialCleanupDependencies,
+  overrides: partialCleanupOverrides,
+};
+
 test("e2e: partial cleanup removes only stale overrides", async () => {
-  const pkgPath = createRemovalFixture("partial-cleanup", {
-    name: "test-partial",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20", express: "^4.18.0" },
-    overrides: {
-      lodash: "4.17.21",
-      express: "4.18.2",
-      "stale-a": "1.0.0",
-      "stale-b": "2.0.0",
-    },
-  });
+  const pkgPath = createRemovalFixture("partial-cleanup", partialCleanupManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -1075,23 +1301,37 @@ test("e2e: partial cleanup removes only stale overrides", async () => {
   assert.strictEqual(appendixKeys.length, 2);
 });
 
+const overridePathsMonoDependencies = { lodash: "^4.17.20" };
+const overridePathsMonoOverrides = { lodash: "4.17.21", react: "18.2.0" };
+const overridePathsMonoReactPathDependents = {
+  "packages/app": "react@^18.0.0",
+};
+const overridePathsMonoReactPathLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+};
+const overridePathsMonoReactPath = {
+  dependents: overridePathsMonoReactPathDependents,
+  ledger: overridePathsMonoReactPathLedger,
+};
+const overridePathsMonoConfigOverridePathsPackagesApp = {
+  "react@18.2.0": overridePathsMonoReactPath,
+};
+const overridePathsMonoConfigOverridePaths = {
+  "packages/app": overridePathsMonoConfigOverridePathsPackagesApp,
+};
+const overridePathsMonoConfig = {
+  overridePaths: overridePathsMonoConfigOverridePaths,
+};
+const overridePathsMonoManifest = {
+  name: "test-override-paths",
+  version: "1.0.0",
+  dependencies: overridePathsMonoDependencies,
+  overrides: overridePathsMonoOverrides,
+  pastoralist: overridePathsMonoConfig,
+};
+
 test("e2e: overridePaths preserves react override tracked in monorepo paths", async () => {
-  const pkgPath = createRemovalFixture("override-paths-mono", {
-    name: "test-override-paths",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21", react: "18.2.0" },
-    pastoralist: {
-      overridePaths: {
-        "packages/app": {
-          "react@18.2.0": {
-            dependents: { "packages/app": "react@^18.0.0" },
-            ledger: { addedDate: "2024-01-01T00:00:00.000Z" },
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createRemovalFixture("override-paths-mono", overridePathsMonoManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -1099,31 +1339,41 @@ test("e2e: overridePaths preserves react override tracked in monorepo paths", as
   assert.notStrictEqual(result.overrides?.react, undefined);
 });
 
+const keepCleanupIntegrityDependencies = { lodash: "^4.17.20" };
+const keepCleanupIntegrityOverrides = {
+  lodash: "4.17.21",
+  "security-pkg": "3.0.0",
+  orphan: "1.0.0",
+};
+const keepCleanupIntegritySecurityDependents = {
+  "test-keep-cleanup": "security-pkg (unused override)",
+};
+const keepCleanupIntegritySecurityLedgerCves = ["CVE-2024-1234"];
+const keepCleanupIntegritySecurityLedger = {
+  addedDate: "2024-01-01T00:00:00.000Z",
+  keep: true,
+  cves: keepCleanupIntegritySecurityLedgerCves,
+};
+const keepCleanupIntegritySecurity = {
+  dependents: keepCleanupIntegritySecurityDependents,
+  ledger: keepCleanupIntegritySecurityLedger,
+};
+const keepCleanupIntegrityAppendix = {
+  "security-pkg@3.0.0": keepCleanupIntegritySecurity,
+};
+const keepCleanupIntegrityConfig = {
+  appendix: keepCleanupIntegrityAppendix,
+};
+const keepCleanupIntegrityManifest = {
+  name: "test-keep-cleanup",
+  version: "1.0.0",
+  dependencies: keepCleanupIntegrityDependencies,
+  overrides: keepCleanupIntegrityOverrides,
+  pastoralist: keepCleanupIntegrityConfig,
+};
+
 test("e2e: keep: true preserved, orphan removed, appendix integrity maintained", async () => {
-  const pkgPath = createRemovalFixture("keep-cleanup-integrity", {
-    name: "test-keep-cleanup",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: {
-      lodash: "4.17.21",
-      "security-pkg": "3.0.0",
-      orphan: "1.0.0",
-    },
-    pastoralist: {
-      appendix: {
-        "security-pkg@3.0.0": {
-          dependents: {
-            "test-keep-cleanup": "security-pkg (unused override)",
-          },
-          ledger: {
-            addedDate: "2024-01-01T00:00:00.000Z",
-            keep: true,
-            cves: ["CVE-2024-1234"],
-          },
-        },
-      },
-    },
-  });
+  const pkgPath = createRemovalFixture("keep-cleanup-integrity", keepCleanupIntegrityManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -1137,12 +1387,15 @@ test("e2e: keep: true preserved, orphan removed, appendix integrity maintained",
   assert.strictEqual(result.overrides?.orphan, undefined);
 });
 
+const noDepsOverridesOverrides = { "pkg-a": "1.0.0", "pkg-b": "2.0.0" };
+const noDepsOverridesManifest = {
+  name: "test-no-deps",
+  version: "1.0.0",
+  overrides: noDepsOverridesOverrides,
+};
+
 test("e2e: all overrides removed when no dependencies present", async () => {
-  const pkgPath = createRemovalFixture("no-deps-overrides", {
-    name: "test-no-deps",
-    version: "1.0.0",
-    overrides: { "pkg-a": "1.0.0", "pkg-b": "2.0.0" },
-  });
+  const pkgPath = createRemovalFixture("no-deps-overrides", noDepsOverridesManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 
@@ -1151,13 +1404,17 @@ test("e2e: all overrides removed when no dependencies present", async () => {
   assert.strictEqual(result.overrides?.["pkg-b"], undefined);
 });
 
+const idempotencyDependencies = { lodash: "^4.17.20" };
+const idempotencyOverrides = { lodash: "4.17.21" };
+const idempotencyManifest = {
+  name: "test-idempotency",
+  version: "1.0.0",
+  dependencies: idempotencyDependencies,
+  overrides: idempotencyOverrides,
+};
+
 test("e2e: double-run produces identical file content", async () => {
-  const pkgPath = createFixture("idempotency", {
-    name: "test-idempotency",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-  });
+  const pkgPath = createFixture("idempotency", idempotencyManifest);
 
   await action({ path: pkgPath, checkSecurity: false });
   const firstRun = readFileSync(pkgPath, "utf-8");
@@ -1169,16 +1426,22 @@ test("e2e: double-run produces identical file content", async () => {
   assert.strictEqual(secondRun, firstRun);
 });
 
+const preserveConfigDependencies = { lodash: "^4.17.20" };
+const preserveConfigOverrides = { lodash: "4.17.21" };
+const preserveConfigConfigSecurity = { enabled: false, provider: "osv" };
+const preserveConfigConfig = {
+  security: preserveConfigConfigSecurity,
+};
+const preserveConfigManifest = {
+  name: "test-preserve-config",
+  version: "1.0.0",
+  dependencies: preserveConfigDependencies,
+  overrides: preserveConfigOverrides,
+  pastoralist: preserveConfigConfig,
+};
+
 test("e2e: non-override pastoralist config preserved after cleanup", async () => {
-  const pkgPath = createRemovalFixture("preserve-config", {
-    name: "test-preserve-config",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      security: { enabled: false, provider: "osv" },
-    },
-  });
+  const pkgPath = createRemovalFixture("preserve-config", preserveConfigManifest);
 
   await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
 

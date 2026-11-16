@@ -16,9 +16,7 @@ import type { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 const createInterfaceMock = mock(readline.createInterface);
 
 const namedExports = Object.assign({}, readline, { createInterface: createInterfaceMock });
-moduleMock.module("readline", {
-  namedExports,
-});
+moduleMock.module("readline", { namedExports });
 
 const {
   applyDirectDependencyUpdates,
@@ -56,10 +54,7 @@ test("constructor - should initialize with debug option", () => {
 test("isInstalled - should return true for installed command", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const result = await installer.isInstalled("available-command");
 
   assert.strictEqual(result, true);
@@ -75,10 +70,7 @@ test("isInstalled - should return false for non-existent command", async () => {
 test("isInstalled - should return true when command lookup succeeds", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const result = await installer.isInstalled("mock-command");
 
   assert.strictEqual(result, true);
@@ -100,10 +92,7 @@ test("isInstalled - should return true for git", async () => {
 test("isInstalledGlobally - should return false for non-installed package", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const result = await installer.isInstalledGlobally("definitely-not-a-real-package-xyz");
 
   assert.strictEqual(result, false);
@@ -118,10 +107,7 @@ test("isInstalledGlobally - should return false for non-installed package", asyn
 test("isInstalledGlobally - should handle npm list errors gracefully", async () => {
   const execFileAsync = mock(() => Promise.reject(new Error("npm list failed")));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const result = await installer.isInstalledGlobally("non-existent-package-12345");
 
   assert.strictEqual(result, false);
@@ -136,10 +122,7 @@ test("isInstalledGlobally - should handle npm list errors gracefully", async () 
 test("getVersion - should return command version output", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "1.2.3\n", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const version = await installer.getVersion("mock-command");
 
   assert.notStrictEqual(version, undefined);
@@ -158,10 +141,7 @@ test("getVersion - should return version for git", async () => {
 test("getVersion - should trim version output", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "  2.0.0  \n", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const version = await installer.getVersion("mock-command");
 
   assert.notStrictEqual(version, undefined);
@@ -178,10 +158,7 @@ test("getVersion - should return undefined for non-existent command", async () =
 test("ensureInstalled - should return true if command is already available", async () => {
   const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
   const result = await installer.ensureInstalled({
     packageName: "available-package",
     cliCommand: "available-command",
@@ -208,10 +185,7 @@ test("ensureInstalled - should handle non-existent package without throwing", as
 test("installGlobally - should throw error for invalid package name", async () => {
   const execFileAsync = mock(() => Promise.reject(new Error("invalid package name")));
   const mockedExecFileAsync = execFileAsync as any;
-  const installer = new CLIInstaller({
-    debug: false,
-    execFileAsync: mockedExecFileAsync,
-  });
+  const installer = new CLIInstaller({ debug: false, execFileAsync: mockedExecFileAsync });
 
   await assert.rejects(
     installer.installGlobally("invalid@#$%package!@#$name"),
@@ -363,15 +337,12 @@ test("deduplicateAlerts - merges cves from lower-severity duplicate into existin
   assert.ok(cveSet.has("CVE-B"));
 });
 
-const dependencies = {
-  lodash: "^4.17.20",
-  express: "~4.18.0",
-};
+const RANGED_DEPENDENCIES = { lodash: "^4.17.20", express: "~4.18.0" };
 test("extractPackages - extracts dependencies", () => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    dependencies,
+    dependencies: RANGED_DEPENDENCIES,
   };
 
   const result = extractPackages(config);
@@ -380,14 +351,12 @@ test("extractPackages - extracts dependencies", () => {
   assertContainsEqual(result, { name: "express", version: "4.18.0" });
 });
 
-const devDependencies = {
-  typescript: "^5.0.0",
-};
+const TOOL_DEV_DEPENDENCIES = { typescript: "^5.0.0" };
 test("extractPackages - extracts devDependencies", () => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    devDependencies,
+    devDependencies: TOOL_DEV_DEPENDENCIES,
   };
 
   const result = extractPackages(config);
@@ -395,30 +364,18 @@ test("extractPackages - extracts devDependencies", () => {
   assert.deepStrictEqual(result[0], { name: "typescript", version: "5.0.0" });
 });
 
-const peerDependencies = {
-  react: "^18.0.0",
-};
+const peerDependencies = { react: "^18.0.0" };
 test("extractPackages - extracts peerDependencies", () => {
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    peerDependencies,
-  };
+  const config: PastoralistJSON = { name: "test", version: "1.0.0", peerDependencies };
 
   const result = extractPackages(config);
   assert.strictEqual(result.length, 1);
   assert.deepStrictEqual(result[0], { name: "react", version: "18.0.0" });
 });
 
-const configDependencies = {
-  lodash: "4.17.20",
-};
-const configDevDependencies = {
-  typescript: "5.0.0",
-};
-const configPeerDependencies = {
-  react: "18.0.0",
-};
+const configDependencies = { lodash: "4.17.20" };
+const configDevDependencies = { typescript: "5.0.0" };
+const configPeerDependencies = { react: "18.0.0" };
 test("extractPackages - extracts all dependency types", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -432,11 +389,7 @@ test("extractPackages - extracts all dependency types", () => {
   assert.strictEqual(result.length, 3);
 });
 
-const dependencies2 = {
-  a: "^1.0.0",
-  b: "~2.0.0",
-  c: "3.0.0",
-};
+const dependencies2 = { a: "^1.0.0", b: "~2.0.0", c: "3.0.0" };
 test("extractPackages - strips caret and tilde prefixes", () => {
   const config = testPackageJson({ dependencies: dependencies2 });
 
@@ -446,14 +399,9 @@ test("extractPackages - strips caret and tilde prefixes", () => {
   assertContainsEqual(result, { name: "c", version: "3.0.0" });
 });
 
-const dependencies3 = {
-  caret: "^ 1.2.3",
-  tilde: "~ 2.0.0",
-};
+const dependencies3 = { caret: "^ 1.2.3", tilde: "~ 2.0.0" };
 test("extractPackages - accepts whitespace after caret and tilde prefixes", () => {
-  const config: PastoralistJSON = {
-    dependencies: dependencies3,
-  };
+  const config: PastoralistJSON = { dependencies: dependencies3 };
 
   assert.deepStrictEqual(extractPackages(config), [
     { name: "caret", version: "1.2.3" },
@@ -471,9 +419,7 @@ const dependencies4 = {
   tag: "latest",
 };
 test("extractPackages - normalizes ranges and preserves nonnumeric specs", () => {
-  const config: PastoralistJSON = {
-    dependencies: dependencies4,
-  };
+  const config: PastoralistJSON = { dependencies: dependencies4 };
 
   assert.deepStrictEqual(extractPackages(config), [
     { name: "bounded", version: "1.2.0" },
@@ -601,9 +547,7 @@ test("findVulnerablePackages - finds vulnerable packages", () => {
   assert.strictEqual(result[0].currentVersion, "4.17.20");
 });
 
-const dependencies5 = {
-  lodash: "4.17.21",
-};
+const dependencies5 = { lodash: "4.17.21" };
 test("findVulnerablePackages - filters out non-vulnerable packages", () => {
   const config = testPackageJson({ dependencies: dependencies5 });
 
@@ -613,9 +557,7 @@ test("findVulnerablePackages - filters out non-vulnerable packages", () => {
   assert.strictEqual(result.length, 0);
 });
 
-const dependencies6 = {
-  express: "4.18.0",
-};
+const dependencies6 = { express: "4.18.0" };
 test("findVulnerablePackages - filters out packages not in config", () => {
   const config = testPackageJson({ dependencies: dependencies6 });
 
@@ -625,9 +567,7 @@ test("findVulnerablePackages - filters out packages not in config", () => {
   assert.strictEqual(result.length, 0);
 });
 
-const vulnerableLodashDevDependencies = {
-  lodash: "4.17.20",
-};
+const vulnerableLodashDevDependencies = { lodash: "4.17.20" };
 test("findVulnerablePackages - checks devDependencies", () => {
   const config = testPackageJson({ devDependencies: vulnerableLodashDevDependencies });
 
@@ -637,9 +577,7 @@ test("findVulnerablePackages - checks devDependencies", () => {
   assert.strictEqual(result.length, 1);
 });
 
-const vulnerableLodashDependencies = {
-  lodash: "4.17.20",
-};
+const vulnerableLodashDependencies = { lodash: "4.17.20" };
 test("findVulnerablePackages - checks peerDependencies", () => {
   const config = testPackageJson({ peerDependencies: vulnerableLodashDependencies });
 
@@ -750,11 +688,7 @@ test("InteractiveSecurityManager - accepts a best-case portfolio atomically", as
   const confirm = createResolvedPrompt(true);
   const select = createResolvedPrompt("custom");
   const input = createResolvedPrompt("5.0.0");
-  const prompts = {
-    confirm,
-    select,
-    input,
-  };
+  const prompts = { confirm, select, input };
   const manager = new InteractiveSecurityManager(prompts);
   const overrides = [createInteractiveOverride()];
   const { log: originalLog } = console;
@@ -771,11 +705,7 @@ test("InteractiveSecurityManager - rejects a best-case portfolio atomically", as
   const confirm = createResolvedPrompt(false);
   const select = createResolvedPrompt("apply");
   const input = createResolvedPrompt("");
-  const prompts = {
-    confirm,
-    select,
-    input,
-  };
+  const prompts = { confirm, select, input };
   const manager = new InteractiveSecurityManager(prompts);
   const { log: originalLog } = console;
   console.log = mock();
@@ -794,11 +724,7 @@ test("InteractiveSecurityManager - identifies user-owned updates with their adde
   const confirm = createResolvedPrompt(true);
   const select = createResolvedPrompt("apply");
   const input = createResolvedPrompt("");
-  const prompts = {
-    confirm,
-    select,
-    input,
-  };
+  const prompts = { confirm, select, input };
   const manager = new InteractiveSecurityManager(prompts);
   const update = {
     packageName: "lodash",
@@ -816,11 +742,7 @@ test("InteractiveSecurityManager - skips declined user-owned updates without dat
   const confirm = createResolvedPrompt(false);
   const select = createResolvedPrompt("apply");
   const input = createResolvedPrompt("");
-  const prompts = {
-    confirm,
-    select,
-    input,
-  };
+  const prompts = { confirm, select, input };
   const manager = new InteractiveSecurityManager(prompts);
   const update = {
     packageName: "lodash",
@@ -1453,11 +1375,7 @@ test("computeVulnerabilityReduction - does not suppress fixes when current versi
   assert.strictEqual(result.targetStillVulnerable, false);
 });
 
-const excludeConfigDependencies = {
-  lodash: "4.17.21",
-  minimist: "1.2.5",
-  express: "4.18.0",
-};
+const excludeConfigDependencies = { lodash: "4.17.21", minimist: "1.2.5", express: "4.18.0" };
 const excludeConfig: PastoralistJSON = {
   name: "test-app",
   version: "1.0.0",
@@ -1587,17 +1505,22 @@ const svelteAlert: SecurityAlert = {
   title: "GHSA-27mw-82g8-phjj",
   fixAvailable: true,
 };
+const { title: reason } = svelteAlert;
 const svelteFix: SecurityOverride = {
   packageName: "@sveltejs/kit",
   fromVersion: "2.70.3",
   toVersion: "3.0.0",
-  reason: svelteAlert.title,
+  reason,
   severity: "low",
 };
+const dependencies7 = { "@sveltejs/kit": "^2.70.3" };
+const config2 = { name: "fixture", version: "1.0.0", dependencies: dependencies7 };
+const SVELTE_INVENTORY = [{ name: "@sveltejs/kit", version: "2.70.3" }];
+const ranges2 = new Map();
 const context: SecurityFixContext = {
-  config: { name: "fixture", version: "1.0.0", dependencies: { "@sveltejs/kit": "^2.70.3" } },
-  inventory: [{ name: "@sveltejs/kit", version: "2.70.3" }],
-  ranges: new Map(),
+  config: config2,
+  inventory: SVELTE_INVENTORY,
+  ranges: ranges2,
 };
 
 test("SvelteKit migration is reported and cannot become an automatic override", () => {
@@ -1618,16 +1541,15 @@ test("approval updates the original dependency field and preserves its operator"
 });
 
 test("same-major devDependency fixes also require approval", () => {
-  const config = { name: "fixture", version: "1.0.0", devDependencies: { tool: "~1.2.0" } };
+  const devDependencies = { tool: "~1.2.0" };
+  const config = { name: "fixture", version: "1.0.0", devDependencies };
   const fix = Object.assign({}, svelteFix, {
     packageName: "tool",
     fromVersion: "1.2.0",
     toVersion: "1.2.1",
   });
-  const classified = classifySecurityFix(
-    fix,
-    Object.assign({}, context, { config, inventory: [] }),
-  );
+  const inventory: SecurityFixContext["inventory"] = [];
+  const classified = classifySecurityFix(fix, Object.assign({}, context, { config, inventory }));
   assert.equal(canApplySecurityFix(classified), false);
   assert.deepEqual(classified.dependencyFields, ["devDependencies"]);
   const approved = Object.assign({}, classified, { approved: true });
@@ -1635,27 +1557,26 @@ test("same-major devDependency fixes also require approval", () => {
 });
 
 test("approved direct updates remove their override and preserve unrelated pnpm settings", () => {
-  const config = Object.assign({}, context.config, {
-    overrides: { "@sveltejs/kit": "3.1.1" },
-    pnpm: {
-      overrides: { "@sveltejs/kit": "3.1.1", other: "1.0.1" },
-      patchedDependencies: { "other@1.0.1": "patches/other.patch" },
-    },
-  });
+  const overrides = { "@sveltejs/kit": "3.1.1" };
+  const overrides2 = { "@sveltejs/kit": "3.1.1", other: "1.0.1" };
+  const patchedDependencies = { "other@1.0.1": "patches/other.patch" };
+  const pnpm = { overrides: overrides2, patchedDependencies };
+  const config = Object.assign({}, context.config, { overrides, pnpm });
   const fix = Object.assign({}, classifySecurityFix(svelteFix, context), { approved: true });
   const updated = applyDirectDependencyUpdates(config, [fix]);
   assert.equal(updated.dependencies?.[fix.packageName], "^3.0.0");
   assert.equal(Object.hasOwn(updated, "overrides"), false);
+  const overrides3 = { other: "1.0.1" };
+  const patchedDependencies2 = { "other@1.0.1": "patches/other.patch" };
   assert.deepEqual(updated.pnpm, {
-    overrides: { other: "1.0.1" },
-    patchedDependencies: { "other@1.0.1": "patches/other.patch" },
+    overrides: overrides3,
+    patchedDependencies: patchedDependencies2,
   });
 });
 
 test("non-registry direct declarations require a manual manifest change", () => {
-  const config = Object.assign({}, context.config, {
-    dependencies: { "@sveltejs/kit": "workspace:^" },
-  });
+  const dependencies = { "@sveltejs/kit": "workspace:^" };
+  const config = Object.assign({}, context.config, { dependencies });
   const fix = classifySecurityFix(svelteFix, Object.assign({}, context, { config }));
   assert.match(fix.blocked ?? "", /non-registry/);
   const approved = Object.assign({}, fix, { approved: true });
@@ -1663,24 +1584,30 @@ test("non-registry direct declarations require a manual manifest change", () => 
   assert.deepEqual(applyDirectDependencyUpdates(config, [approved]), config);
 });
 
-(["dependencies", "devDependencies"] as const).forEach((field) => {
-  test(`direct ${field} updates preserve separate aliases of the same package`, () => {
-    const config = { [field]: { lodash: "^4.17.20", legacy: "npm:lodash@3.10.1" } };
-    const fix = Object.assign({}, svelteFix, {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-    });
-    const classified = classifySecurityFix(fix, { config, inventory: [], ranges: new Map() });
-    assert.equal(classified.blocked, undefined);
-    assert.equal(canApplySecurityFix(classified), false);
-    const approved = Object.assign({}, classified, { approved: true });
-    assert.equal(canApplySecurityFix(approved), true);
-    const updated = applyDirectDependencyUpdates(config, [approved]);
-    assert.equal(updated[field]?.lodash, "^4.17.21");
-    assert.equal(updated[field]?.legacy, "npm:lodash@3.10.1");
-    assert.equal(config[field].lodash, "^4.17.20");
+const assertDirectAliasPreservation = (field: "dependencies" | "devDependencies") => {
+  const declarations = { lodash: "^4.17.20", legacy: "npm:lodash@3.10.1" };
+  const config = { [field]: declarations };
+  const fix = Object.assign({}, svelteFix, {
+    packageName: "lodash",
+    fromVersion: "4.17.20",
+    toVersion: "4.17.21",
   });
+  const inventory: SecurityFixContext["inventory"] = [];
+  const ranges = new Map();
+  const classified = classifySecurityFix(fix, { config, inventory, ranges });
+  assert.equal(classified.blocked, undefined);
+  assert.equal(canApplySecurityFix(classified), false);
+  const approved = Object.assign({}, classified, { approved: true });
+  assert.equal(canApplySecurityFix(approved), true);
+  const updated = applyDirectDependencyUpdates(config, [approved]);
+  assert.equal(updated[field]?.lodash, "^4.17.21");
+  assert.equal(updated[field]?.legacy, "npm:lodash@3.10.1");
+  assert.equal(config[field].lodash, "^4.17.20");
+};
+
+(["dependencies", "devDependencies"] as const).forEach((field) => {
+  test(`direct ${field} updates preserve separate aliases of the same package`, () =>
+    assertDirectAliasPreservation(field));
 });
 
 test("minimum fix must resolve every known advisory", () => {
@@ -1704,12 +1631,14 @@ test("transitive fixes must satisfy every parent range", () => {
     toVersion: "1.3.0",
   });
   const ranges = new Map([["child", ["^1.0.0", "~1.2.0"]]]);
-  const classified = classifySecurityFix(fix, { config, inventory: [], ranges });
+  const inventory: SecurityFixContext["inventory"] = [];
+  const classified = classifySecurityFix(fix, { config, inventory, ranges });
   assert.equal(classified.approvalRequired, "Fix falls outside a declared dependency range");
   assert.equal(canApplySecurityFix(classified), false);
   ranges.set("child", ["^1.0.0", "^1.2.0"]);
+  const inventory2: SecurityFixContext["inventory"] = [];
   assert.equal(
-    canApplySecurityFix(classifySecurityFix(fix, { config, inventory: [], ranges })),
+    canApplySecurityFix(classifySecurityFix(fix, { config, inventory: inventory2, ranges })),
     true,
   );
 });
@@ -1771,7 +1700,8 @@ test("different installed release lines never collapse into one global override"
     fromVersion: "1.2.0",
     toVersion: "1.2.1",
   });
-  const classified = classifySecurityFix(fix, { config, inventory, ranges: new Map() });
+  const ranges = new Map();
+  const classified = classifySecurityFix(fix, { config, inventory, ranges });
   assert.match(classified.blocked ?? "", /coexisting release lines/);
   assert.equal(canApplySecurityFix(Object.assign({}, classified, { approved: true })), false);
   const second = Object.assign({}, fix, { fromVersion: "2.2.0", toVersion: "2.2.1" });

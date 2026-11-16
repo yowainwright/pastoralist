@@ -27,18 +27,19 @@ const testModeResult = {
 };
 
 const createTestPackageJson = (content: any = {}) => {
+  const dependencies = {
+    lodash: "^4.17.20",
+  };
+  const appendix = {};
+  const pastoralist = Object.assign({}, { appendix }, content.pastoralist);
   const defaultContent = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "^4.17.20",
-    },
-    pastoralist: {
-      appendix: {},
-      ...content.pastoralist,
-    },
+    dependencies,
+    pastoralist,
   };
-  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify({ ...defaultContent, ...content }, null, 2));
+  const manifest = Object.assign({}, defaultContent, content);
+  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify(manifest, null, 2));
 };
 
 beforeEach(() => {
@@ -66,12 +67,15 @@ test("action - should handle test mode", async () => {
   assert.strictEqual(existsSync(TEST_PACKAGE_JSON), false);
 });
 
+const processPackageJsonWithoutSecurityCheckOverrides = {
+  lodash: "4.17.21",
+};
+const processPackageJsonWithoutSecurityCheckManifest = {
+  overrides: processPackageJsonWithoutSecurityCheckOverrides,
+};
+
 test("action - should process package.json without security check", async () => {
-  createTestPackageJson({
-    overrides: {
-      lodash: "4.17.21",
-    },
-  });
+  createTestPackageJson(processPackageJsonWithoutSecurityCheckManifest);
 
   const options: Options = {
     path: TEST_PACKAGE_JSON,
@@ -86,18 +90,23 @@ test("action - should process package.json without security check", async () => 
   assert.notStrictEqual(updated.pastoralist.appendix["lodash@4.17.21"], undefined);
 });
 
+const mergeOptionsFromConfigOverrides = {
+  react: "18.0.0",
+};
+const mergeOptionsFromConfigConfigSecurity = {
+  enabled: false,
+  provider: "osv",
+};
+const mergeOptionsFromConfigConfig = {
+  security: mergeOptionsFromConfigConfigSecurity,
+};
+const mergeOptionsFromConfigManifest = {
+  overrides: mergeOptionsFromConfigOverrides,
+  pastoralist: mergeOptionsFromConfigConfig,
+};
+
 test("action - should merge options from config", async () => {
-  createTestPackageJson({
-    overrides: {
-      react: "18.0.0",
-    },
-    pastoralist: {
-      security: {
-        enabled: false,
-        provider: "osv",
-      },
-    },
-  });
+  createTestPackageJson(mergeOptionsFromConfigManifest);
 
   const options: Options = {
     path: TEST_PACKAGE_JSON,
@@ -110,12 +119,15 @@ test("action - should merge options from config", async () => {
   assert.notStrictEqual(updated.pastoralist.appendix, undefined);
 });
 
+const handleRootPathOptionOverrides = {
+  lodash: "4.17.21",
+};
+const handleRootPathOptionManifest = {
+  overrides: handleRootPathOptionOverrides,
+};
+
 test("action - should handle root path option", async () => {
-  createTestPackageJson({
-    overrides: {
-      lodash: "4.17.21",
-    },
-  });
+  createTestPackageJson(handleRootPathOptionManifest);
 
   const options: Options = {
     path: "package.json",
@@ -131,7 +143,7 @@ test("action - should handle root path option", async () => {
 
 test("run - should handle help flag", async () => {
   const consoleSpy = mock(() => {});
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   console.log = consoleSpy;
 
   await run(["node", "script.js", "--help"]);
@@ -142,7 +154,7 @@ test("run - should handle help flag", async () => {
 
 test("run - should handle -h flag", async () => {
   const consoleSpy = mock(() => {});
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   console.log = consoleSpy;
 
   await run(["node", "script.js", "-h"]);
@@ -151,12 +163,15 @@ test("run - should handle -h flag", async () => {
   console.log = originalLog;
 });
 
+const callActionForDefaultCommandOverrides = {
+  lodash: "4.17.21",
+};
+const callActionForDefaultCommandManifest = {
+  overrides: callActionForDefaultCommandOverrides,
+};
+
 test("run - should call action for default command", async () => {
-  createTestPackageJson({
-    overrides: {
-      lodash: "4.17.21",
-    },
-  });
+  createTestPackageJson(callActionForDefaultCommandManifest);
 
   await run(["node", "script.js", `--path=${TEST_PACKAGE_JSON}`]);
 

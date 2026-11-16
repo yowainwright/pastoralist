@@ -28,6 +28,7 @@ export type DependencyDiagnostic = {
     | "unreadable-lockfile"
     | "invalid-or-unsupported-lockfile"
     | "unreadable-manifest"
+    | "unverified-lockfile"
     | "missing-manifest-root";
 };
 

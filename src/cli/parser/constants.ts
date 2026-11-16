@@ -13,7 +13,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   option(["--debug"], { hasValue: false }),
   option(["--dry-run"], { hasValue: false }),
   option(["--outputFormat"], { hasValue: true, defaultValue: "text" }),
-  option(["-p", "--path"], { hasValue: true, defaultValue: "package.json" }),
+  option(["-p", "--path"], { hasValue: true }),
   option(["-d", "--depPaths"], { hasValue: true, isArray: true }),
   option(["--ignore"], { hasValue: true, isArray: true }),
   option(["-r", "--root"], { hasValue: true }),
@@ -53,9 +53,9 @@ Commands:
 Options:
   -v, --version                         Print the installed Pastoralist version
   --debug                               Enable debug mode
-  --dry-run                             Preview changes without writing to package.json
+  --dry-run                             Preview changes without writing project files
   --outputFormat <format>               Output format: text (default) or json
-  -p, --path <path>                     Specifies a path to a package.json (default: "package.json")
+  -p, --path <path>                     Select package.json or pyproject.toml (default: auto-detect)
   -d, --depPaths [paths...]             Specifies glob paths to package.jsons
   --ignore [paths...]                   Specifies glob paths to ignore
   -r, --root <root>                     Specifies a root path

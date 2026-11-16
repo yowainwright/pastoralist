@@ -80,6 +80,24 @@ Use `npx pastoralist --setup-hook` to add it to `postinstall`.
 See the [docs](https://jeffry.in/pastoralist/docs/introduction) for setup,
 configuration, workspaces, security, and interactive examples.
 
+## Python: uv override tracking
+
+In a standalone uv project, run `pastoralist` to track existing
+[`tool.uv.override-dependencies`](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides).
+Pastoralist detects `pyproject.toml` with `uv.lock` or uv settings and writes its
+appendix to `.pastoralistrc`. No `package.json` is required. The Python manifest
+and lockfile remain unchanged; `--dry-run` previews the appendix update.
+
+When both Python and JavaScript project files are present, select
+`--path pyproject.toml` or `--path package.json`. Existing entries for the
+unselected ecosystem remain in the appendix. JavaScript configuration files
+must set `appendixSource` to a separate JSON file when tracking uv overrides.
+
+This first slice supports global string overrides, one per normalized package
+name. Dependency paths come from the lockfile snapshot; absent paths remain
+unknown until native verification is available. Workspaces, scoped overrides,
+security checks, automatic fixes, and removal are not supported yet.
+
 ## CLI API
 
 The direct commands below assume `pastoralist` is available from a project

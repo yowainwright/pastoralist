@@ -27,6 +27,7 @@ import {
   removeAppendixKeys,
   removeOverrideKeys,
   toCompactAppendix,
+  normalizeAppendix,
 } from "../../../../src/core/appendix/utils";
 import type { Appendix, AppendixItem, SecurityOverrideDetail } from "../../../../src/types";
 import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup";
@@ -233,6 +234,18 @@ test("toCompactAppendix - should compact simple entries", () => {
   const result = toCompactAppendix(appendix);
 
   assert.deepStrictEqual(result["lodash@4.17.21"], { addedDate: "2024-01-15" });
+});
+
+test("toCompactAppendix - preserves ecosystem ownership through normalization", () => {
+  const ecosystem = "PyPI" as const;
+  const entry = Object.assign({}, lodashEntry, { ecosystem });
+  const appendix: Appendix = { "urllib3@==2.8.0": entry };
+  const compact = toCompactAppendix(appendix);
+  assert.deepStrictEqual(compact["urllib3@==2.8.0"], {
+    addedDate: "2024-01-15",
+    ecosystem: "PyPI",
+  });
+  assert.strictEqual(normalizeAppendix(compact)["urllib3@==2.8.0"].ecosystem, "PyPI");
 });
 
 const appendixLodashEntryLedger = {

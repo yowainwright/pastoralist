@@ -1,6 +1,6 @@
 import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { basename, dirname, resolve } from "path";
 import { pathToFileURL } from "url";
 import type { Options, PastoralistJSON } from "../types";
 import { resolvePathFromRoot } from "../cli/utils";
@@ -19,6 +19,8 @@ import { CONFIG_FILES, SECURITY_CONFIG_FIELDS, UNSUPPORTED_TYPESCRIPT_CONFIG } f
 import { validateConfig } from "./validation";
 import { isRecord, parsePackageJson } from "../utils";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
+import { assertUvTrackingOptions, detectUvProject, loadUvProject } from "../mgrs/uv";
+import type { NativeProject } from "../mgrs/types";
 
 const configCache = new Map<string, LoadedConfig>();
 const log = logger({ file: "config/index.ts" });
@@ -201,7 +203,9 @@ const mergeAppendixEntry = (
   const dependents = mergeDependents(existingItem, value);
   const patches = mergePatches(existingItem, value);
   const ledger = value.ledger || existingItem.ledger;
+  const ecosystem = value.ecosystem ?? existingItem.ecosystem;
   const appendixEntry: AppendixItem = { dependents, patches, ledger };
+  if (ecosystem) appendixEntry.ecosystem = ecosystem;
   return appendixEntry;
 };
 
@@ -349,6 +353,16 @@ const loadMergedConfig = async (
   return result2;
 };
 
+const assertNativeAppendixTarget = (options: Options, loaded: LoadedConfig): void => {
+  const usesExecutableConfig = loaded.source?.format === "javascript";
+  const needsNativeTarget = Boolean(options.nativeProject) && usesExecutableConfig;
+  const missingTarget = needsNativeTarget && !loaded.appendixTarget;
+  if (!missingTarget) return;
+  throw new Error(
+    "uv projects using JavaScript config must set appendixSource to a separate JSON file",
+  );
+};
+
 const mergeExternalConfig = async (
   path: string,
   options: Options,
@@ -357,6 +371,7 @@ const mergeExternalConfig = async (
 ): Promise<MergedExternalConfig> => {
   const configRoot = options.root || dirname(resolve(path));
   const loaded = await loadMergedConfig(configRoot, packageConfig, deps);
+  assertNativeAppendixTarget(options, loaded);
   const pastoralist = createPastoralistField(loaded.config);
   const config = Object.assign({}, packageConfig, pastoralist);
   const { appendixTarget } = loaded;
@@ -411,17 +426,70 @@ const mergeOptionsWithConfig = (
   return optionsWithConfig;
 };
 
+const resolveCliManifestPath = (options: Options): string => {
+  if (options.path) {
+    const path = resolvePathFromRoot(options.path, options.root);
+    return path;
+  }
+  const root = options.root || process.cwd();
+  const isUv = detectUvProject(root);
+  const isMixed = isUv && existsSync(resolve(root, "package.json"));
+  if (isMixed)
+    throw new Error(
+      "Multiple ecosystems detected; select --path pyproject.toml or --path package.json",
+    );
+  const filename = isUv ? "pyproject.toml" : "package.json";
+  const path = resolvePathFromRoot(filename, options.root);
+  return path;
+};
+
+const loadProjectInput = (path: string, deps: Pick<CliConfigDeps, "resolveJSON">) => {
+  if (basename(path) === "pyproject.toml") {
+    const project = loadUvProject(resolve(path));
+    const appendixEcosystem = "PyPI" as const;
+    const nativeInput = Object.assign({}, project, { appendixEcosystem });
+    return nativeInput;
+  }
+  const config = loadPackageConfig(path, deps);
+  const isMixed = existsSync(resolve(dirname(path), "pyproject.toml"));
+  const appendixEcosystem: AppendixItem["ecosystem"] = isMixed ? "npm" : undefined;
+  const project = {
+    config,
+    nativeProject: undefined,
+    appendixEcosystem,
+  };
+  return project;
+};
+
+const withNativeAppendixTarget = (
+  loaded: MergedExternalConfig,
+  path: string,
+  nativeProject: NativeProject | undefined,
+): MergedExternalConfig => {
+  if (!nativeProject) return loaded;
+  if (loaded.appendixTarget) return loaded;
+  const targetPath = resolve(dirname(path), ".pastoralistrc");
+  const appendixTarget = { path: targetPath };
+  const pastoralist = mergeTargetAppendix(loaded.config.pastoralist, undefined, appendixTarget);
+  const config = Object.assign({}, loaded.config, { pastoralist });
+  const result = Object.assign({}, loaded, { appendixTarget, config });
+  return result;
+};
+
 export const loadCliConfig = async (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
   deps: CliConfigDeps,
 ): Promise<LoadedCliConfig> => {
-  const relativePath = options.path || "package.json";
-  const path = resolvePathFromRoot(relativePath, options.root);
-  const packageConfig = loadPackageConfig(path, deps);
-  const loaded = await mergeExternalConfig(path, options, packageConfig, deps);
+  const path = resolveCliManifestPath(options);
+  const { config: packageConfig, ...projectOptions } = loadProjectInput(path, deps);
+  const inputOptions = Object.assign({}, options, projectOptions);
+  const external = await mergeExternalConfig(path, inputOptions, packageConfig, deps);
+  const loaded = withNativeAppendixTarget(external, path, projectOptions.nativeProject);
   const context = Object.assign({}, loaded, { manifestConfig: packageConfig, path });
-  const mergedOptions = mergeOptionsWithConfig(options, rest, context, deps);
+  const merged = mergeOptionsWithConfig(options, rest, context, deps);
+  const mergedOptions = Object.assign({}, merged, projectOptions);
+  if (projectOptions.nativeProject) assertUvTrackingOptions(mergedOptions);
   const result = Object.assign({}, loaded, { manifestConfig: packageConfig, path, mergedOptions });
   return result;
 };

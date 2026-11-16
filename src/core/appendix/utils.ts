@@ -813,6 +813,11 @@ const getAddedDate = (item: AppendixItem, addedDate?: string): string => {
 const compactAppendixItem = (item: AppendixItem, addedDate?: string) => {
   if (!canBeCompacted(item)) return item;
   const date = getAddedDate(item, addedDate);
+  if (item.ecosystem) {
+    const { ecosystem } = item;
+    const compact = { addedDate: date, ecosystem };
+    return compact;
+  }
   const compact = { addedDate: date };
   return compact;
 };

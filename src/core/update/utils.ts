@@ -162,6 +162,12 @@ const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): Persiste
   return appendix;
 };
 
+const usesCompactAppendix = (ctx: WriteResultContext): boolean => {
+  const outputConfig = ctx.options?.config ?? ctx.config;
+  const useCompact = outputConfig?.pastoralist?.compactAppendix === true;
+  return useCompact;
+};
+
 const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): void => {
   if (!ctx.appendixTarget) return;
   if (ctx.isTesting) return;
@@ -185,9 +191,14 @@ const buildPackageUpdate = (
 
 export const writeResult = (ctx: WriteResultContext): void => {
   const isJsonOutput = ctx.options?.outputFormat === "json";
-  const useCompact = ctx.config?.pastoralist?.compactAppendix === true;
+  const useCompact = usesCompactAppendix(ctx);
   const appendix = resolveAppendix(ctx.finalAppendix, useCompact);
   const packageAppendix = ctx.appendixTarget ? undefined : appendix;
+
+  if (ctx.options?.nativeProject) {
+    writeExternalAppendix(ctx, appendix);
+    return;
+  }
 
   if (ctx.overrideSource) {
     const { dryRun } = ctx.options ?? {};

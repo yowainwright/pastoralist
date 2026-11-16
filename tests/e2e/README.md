@@ -1,5 +1,15 @@
 # Manual CLI testing
 
+The Python tracking suite uses uv 0.5.9 and a native lockfile fixture. After
+building the CLI, run it with:
+
+```sh
+docker compose -f tests/e2e/docker-compose.yml run --rm --build e2e-python
+```
+
+It checks dry runs, repeat runs, appendix tracking, unchanged native files, and
+the override version exported by uv.
+
 From the repository root, build the CLI, then open an E2E environment:
 
 ```sh

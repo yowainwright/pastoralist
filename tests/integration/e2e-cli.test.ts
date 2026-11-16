@@ -1,9 +1,9 @@
-import { test, beforeEach, afterEach } from "node:test";
+import { test, beforeEach, afterEach, type TestContext } from "node:test";
 import { mock } from "../unit/setup";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "fs";
 import { dirname, resolve, join } from "path";
-import { action } from "../../src/cli/index";
+import { action, run } from "../../src/cli/index";
 import type {
   KeepConstraint,
   OSVPartialVulnerability,
@@ -17,6 +17,495 @@ import type { NpmPackageEntry } from "../../src/mgrs/npm/types";
 import { parsePnpmWorkspaceOverrides } from "../../src/core/overrides";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-e2e-cli");
+
+const UV_FIXTURE_DIR = resolve(import.meta.dirname, "../e2e/fixtures/uv");
+
+const createUvFixture = () => {
+  const root = join(TEST_DIR, "uv");
+  mkdirSync(root, { recursive: true });
+  const path = join(root, "pyproject.toml");
+  const lockPath = join(root, "uv.lock");
+  const configPath = join(root, ".pastoralistrc");
+  const manifest = readFileSync(join(UV_FIXTURE_DIR, "pyproject.toml"), "utf8");
+  const lock = readFileSync(join(UV_FIXTURE_DIR, "uv.lock"), "utf8");
+  writeFileSync(path, manifest);
+  writeFileSync(lockPath, lock);
+  const fixture = { root, path, lockPath, configPath, manifest, lock };
+  return fixture;
+};
+
+const runUvFixture = (
+  t: TestContext,
+  root: string,
+  options: import("../../src/types").Options = {},
+) => {
+  t.mock.method(process, "exit", () => undefined as never);
+  const settings = Object.assign({ root, quiet: true }, options);
+  const result = action(settings);
+  return result;
+};
+
+const assertUvFilesUnchanged = (fixture: ReturnType<typeof createUvFixture>) => {
+  assert.strictEqual(readFileSync(fixture.path, "utf8"), fixture.manifest);
+  assert.strictEqual(readFileSync(fixture.lockPath, "utf8"), fixture.lock);
+  assert.strictEqual(existsSync(join(fixture.root, "package.json")), false);
+};
+
+const assertCompactUvAppendix = (content: string) => {
+  const config = JSON.parse(content);
+  const entry = config.appendix["urllib3@==2.8.0"];
+  assert.deepStrictEqual(Object.keys(entry).toSorted(), ["addedDate", "ecosystem"]);
+  assert.strictEqual(typeof entry.addedDate, "string");
+  assert.strictEqual(entry.ecosystem, "PyPI");
+};
+
+test("uv: tracks native overrides without package.json", async (t) => {
+  const fixture = createUvFixture();
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  assert.strictEqual(result.overrideCount, 1);
+  assert.deepStrictEqual(result.appliedOverrides, { urllib3: "==2.8.0" });
+  assert.strictEqual(result.metrics?.overridesAdded, 0);
+  const config = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.match(config.appendix["urllib3@==2.8.0"].dependents["uv-fixture"], /requests/);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: JSON config preserves compact records across repeated runs", async (t) => {
+  const fixture = createUvFixture();
+  const entry = { addedDate: "2026-11-15", ecosystem: "PyPI" };
+  const appendix = { "urllib3@==2.8.0": entry };
+  writeFileSync(fixture.configPath, JSON.stringify({ appendix, compactAppendix: true }));
+  const first = await runUvFixture(t, fixture.root);
+  assert.strictEqual(first.success, true, first.errors.join("\n"));
+  const saved = readFileSync(fixture.configPath, "utf8");
+  assertCompactUvAppendix(saved);
+  assert.deepStrictEqual(JSON.parse(saved).appendix["urllib3@==2.8.0"], entry);
+  const second = await runUvFixture(t, fixture.root);
+  assert.strictEqual(second.success, true, second.errors.join("\n"));
+  assert.strictEqual(second.updated, false);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), saved);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: command-line defaults allow native manifest discovery", async (t) => {
+  const fixture = createUvFixture();
+  t.mock.method(process, "exit", () => undefined as never);
+  await run(["node", "pastoralist", "--root", fixture.root, "--quiet"]);
+  assert.strictEqual(existsSync(fixture.configPath), true);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: dry runs do not create an appendix config", async (t) => {
+  const fixture = createUvFixture();
+  const result = await runUvFixture(t, fixture.root, { dryRun: true });
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  assert.strictEqual(result.overrideCount, 1);
+  assert.strictEqual(result.updated, false);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: repeat runs preserve manual reasons and keep flags", async (t) => {
+  const fixture = createUvFixture();
+  const ledger = { addedDate: "2026-11-15", reason: "Pinned for API compatibility", keep: true };
+  const dependents = {};
+  const entry = { dependents, ledger };
+  const appendix = { "urllib3@==2.8.0": entry };
+  const config = { appendix, compactAppendix: false };
+  writeFileSync(fixture.configPath, JSON.stringify(config));
+  const first = await runUvFixture(t, fixture.root);
+  assert.strictEqual(first.success, true, first.errors.join("\n"));
+  const saved = readFileSync(fixture.configPath, "utf8");
+  const second = await runUvFixture(t, fixture.root);
+  assert.strictEqual(second.updated, false);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), saved);
+  const written = JSON.parse(saved);
+  assert.strictEqual(written.appendix["urllib3@==2.8.0"].ledger.reason, ledger.reason);
+  assert.strictEqual(written.appendix["urllib3@==2.8.0"].ledger.keep, true);
+  assertUvFilesUnchanged(fixture);
+});
+
+const createNestedUvLedgerFixture = () => {
+  const fixture = createUvFixture();
+  const ledger = { addedDate: "2026-11-15", reason: "Pinned for API compatibility", keep: true };
+  const dependents = { "uv-fixture": "urllib3 (required by requests)" };
+  const python = { ecosystem: "PyPI", dependents, ledger };
+  const foreignLedger = { addedDate: "2026-11-14", reason: "JavaScript compatibility" };
+  const foreign = { ecosystem: "npm", ledger: foreignLedger };
+  const appendix = { "urllib3@==2.8.0": python, "alpha@1.0.1": foreign };
+  writeFileSync(fixture.configPath, JSON.stringify({ appendix }));
+  const saved = Object.assign({}, fixture, { ledger, foreign });
+  return saved;
+};
+
+test("uv: nested manifest loads its default ledger before updating", async (t) => {
+  const fixture = createNestedUvLedgerFixture();
+  const path = join("uv", "pyproject.toml");
+  const first = await runUvFixture(t, TEST_DIR, { path });
+  assert.strictEqual(first.success, true, first.errors.join("\n"));
+  const saved = readFileSync(fixture.configPath, "utf8");
+  const written = JSON.parse(saved);
+  assert.deepStrictEqual(written.appendix["urllib3@==2.8.0"].ledger, fixture.ledger);
+  assert.deepStrictEqual(written.appendix["alpha@1.0.1"], fixture.foreign);
+  const second = await runUvFixture(t, TEST_DIR, { path });
+  assert.strictEqual(second.success, true, second.errors.join("\n"));
+  assert.strictEqual(second.updated, false);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), saved);
+  assert.strictEqual(existsSync(join(TEST_DIR, ".pastoralistrc")), false);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: nested manifest honors an explicit appendix target instead of its default", async (t) => {
+  const fixture = createUvFixture();
+  const sourcePath = join(TEST_DIR, "pastoralist.config.cjs");
+  const source = 'module.exports = { appendixSource: "ledger.json" };\n';
+  writeFileSync(sourcePath, source);
+  writeFileSync(fixture.configPath, "invalid default ledger");
+  const path = join("uv", "pyproject.toml");
+  const result = await runUvFixture(t, TEST_DIR, { path });
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  const written = JSON.parse(readFileSync(join(TEST_DIR, "ledger.json"), "utf8"));
+  assert.strictEqual(written.appendix["urllib3@==2.8.0"].ecosystem, "PyPI");
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), "invalid default ledger");
+  assert.strictEqual(readFileSync(sourcePath, "utf8"), source);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: missing lock evidence keeps overrides with unknown usage", async (t) => {
+  const fixture = createUvFixture();
+  rmSync(fixture.lockPath);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  assert.strictEqual(result.unusedOverrideCount, 0);
+  const config = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.match(config.appendix["urllib3@==2.8.0"].dependents["uv-fixture"], /usage unknown/);
+  assert.strictEqual(readFileSync(fixture.path, "utf8"), fixture.manifest);
+});
+
+test("uv: mixed ecosystems require explicit manifest selection", async (t) => {
+  const fixture = createUvFixture();
+  writeFileSync(join(fixture.root, "package.json"), '{"name":"mixed"}');
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /--path/);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+  const { path } = fixture;
+  const selected = await runUvFixture(t, fixture.root, { path });
+  assert.strictEqual(selected.success, true, selected.errors.join("\n"));
+  assert.strictEqual(selected.overrideCount, 1);
+});
+
+const unsupportedUvOperations = [
+  { removeUnused: true },
+  { checkSecurity: true },
+  { forceSecurityRefactor: true },
+];
+
+unsupportedUvOperations.forEach((options) => {
+  test(`uv: rejects unsupported operation ${JSON.stringify(options)} before writes`, async (t) => {
+    const fixture = createUvFixture();
+    const result = await runUvFixture(t, fixture.root, options);
+    assert.strictEqual(result.success, false);
+    assert.match(result.errors.join("\n"), /tracking only/);
+    assert.strictEqual(existsSync(fixture.configPath), false);
+    assertUvFilesUnchanged(fixture);
+  });
+});
+
+const uvOverrideRequirements = [
+  ["urllib3[secure]>=2,<3; python_version >= '3.9'", "[secure]>=2,<3; python_version >= '3.9'"],
+  ["Urllib3 @ https://example.com/urllib3.whl", "@ https://example.com/urllib3.whl"],
+  ["urllib3", "*"],
+];
+
+uvOverrideRequirements.forEach(([requirement, expected]) => {
+  test(`uv: preserves requirement syntax ${requirement}`, async (t) => {
+    const fixture = createUvFixture();
+    const setting = `override-dependencies = [${JSON.stringify(requirement)}]`;
+    const manifest = fixture.manifest.replace(/^override-dependencies.*$/m, setting);
+    writeFileSync(fixture.path, manifest);
+    const result = await runUvFixture(t, fixture.root);
+    assert.strictEqual(result.success, true, result.errors.join("\n"));
+    assert.deepStrictEqual(result.appliedOverrides, { urllib3: expected });
+    assert.strictEqual(readFileSync(fixture.path, "utf8"), manifest);
+  });
+});
+
+const invalidUvSettings = [
+  'override-dependencies = ["urllib3==2.8.0", "URLLIB3==2.3.0"]',
+  'override-dependencies = [{ package = { name = "requests" }, dependencies = ["urllib3==2.8.0"] }]',
+  '[tool.uv.workspace]\nmembers = ["packages/*"]',
+];
+
+invalidUvSettings.forEach((setting) => {
+  test(`uv: rejects unsupported settings without modifying files ${setting}`, async (t) => {
+    const fixture = createUvFixture();
+    const manifest = fixture.manifest.replace(/^override-dependencies.*$/m, setting);
+    writeFileSync(fixture.path, manifest);
+    const result = await runUvFixture(t, fixture.root);
+    assert.strictEqual(result.success, false);
+    assert.match(result.errors.join("\n"), /not supported yet/);
+    assert.strictEqual(existsSync(fixture.configPath), false);
+    assert.strictEqual(readFileSync(fixture.path, "utf8"), manifest);
+    assert.strictEqual(readFileSync(fixture.lockPath, "utf8"), fixture.lock);
+  });
+});
+
+test("uv: configured security cannot enter the JavaScript security workflow", async (t) => {
+  const fixture = createUvFixture();
+  const config = '{"security":{"enabled":true,"autoFix":true}}';
+  writeFileSync(fixture.configPath, config);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /tracking only/);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: executable config requires an explicit appendix target to avoid shadowing", async (t) => {
+  const fixture = createUvFixture();
+  const sourcePath = join(fixture.root, "pastoralist.config.cjs");
+  const source = "module.exports = { compactAppendix: true };\n";
+  writeFileSync(sourcePath, source);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /appendixSource/);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+  assert.strictEqual(readFileSync(sourcePath, "utf8"), source);
+  assertUvFilesUnchanged(fixture);
+});
+
+test("uv: tracking preserves unrelated manual ledger entries", async (t) => {
+  const fixture = createUvFixture();
+  const config =
+    '{"appendix":{"alpha@1.0.1":{"dependents":{},"ledger":{"addedDate":"2026-11-15","reason":"Keep this JS ledger"}}}}';
+  writeFileSync(fixture.configPath, config);
+  const first = await runUvFixture(t, fixture.root);
+  assert.strictEqual(first.success, true, first.errors.join("\n"));
+  const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.strictEqual(written.appendix["alpha@1.0.1"].ledger.reason, "Keep this JS ledger");
+  const second = await runUvFixture(t, fixture.root);
+  assert.strictEqual(second.updated, false);
+});
+
+test("uv: selecting the JavaScript manifest preserves Python ledger entries", async (t) => {
+  const fixture = createUvFixture();
+  const { path } = fixture;
+  const python = await runUvFixture(t, fixture.root, { path });
+  assert.strictEqual(python.success, true, python.errors.join("\n"));
+  const jsPath = join(fixture.root, "package.json");
+  writeFileSync(jsPath, '{"name":"mixed-js","version":"1.0.0","overrides":{"alpha":"1.0.1"}}');
+  const selected = await runUvFixture(t, fixture.root, { path: jsPath });
+  assert.strictEqual(selected.success, true, selected.errors.join("\n"));
+  const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.notStrictEqual(written.appendix["urllib3@==2.8.0"], undefined);
+  assert.notStrictEqual(written.appendix["alpha@1.0.1"], undefined);
+});
+
+const createUvRefreshFixture = (compactAppendix: boolean) => {
+  const fixture = createUvFixture();
+  const foreign = { addedDate: "2026-11-15", ecosystem: "npm" };
+  const appendix = { "alpha@1.0.1": foreign };
+  writeFileSync(fixture.configPath, JSON.stringify({ appendix, compactAppendix }));
+  return fixture;
+};
+
+[false, true].forEach((compactAppendix) => {
+  test(`uv: refresh removes stale Python overrides with compact=${compactAppendix}`, async (t) => {
+    const fixture = createUvRefreshFixture(compactAppendix);
+    const first = await runUvFixture(t, fixture.root);
+    assert.strictEqual(first.success, true, first.errors.join("\n"));
+    const changed = fixture.manifest.replace("urllib3==2.8.0", "urllib3>=2.8.0");
+    writeFileSync(fixture.path, changed);
+    const second = await runUvFixture(t, fixture.root);
+    assert.strictEqual(second.success, true, second.errors.join("\n"));
+    const updated = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.strictEqual(updated.appendix["urllib3@==2.8.0"], undefined);
+    assert.strictEqual(updated.appendix["urllib3@>=2.8.0"].ecosystem, "PyPI");
+    writeFileSync(fixture.path, changed.replace(/^override-dependencies.*$/m, ""));
+    const third = await runUvFixture(t, fixture.root);
+    assert.strictEqual(third.success, true, third.errors.join("\n"));
+    const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.deepStrictEqual(Object.keys(written.appendix), ["alpha@1.0.1"]);
+  });
+});
+
+const runMixedJsFixture = (t: TestContext, root: string, overrides: Record<string, string>) => {
+  const path = join(root, "package.json");
+  const config = { name: "mixed-js", version: "1.0.0", overrides };
+  writeFileSync(path, JSON.stringify(config));
+  packageJSON.forceClearCache();
+  const result = runUvFixture(t, root, { path });
+  return result;
+};
+
+const createSharedUvLedgerFixture = (target: string, compactAppendix: boolean) => {
+  const fixture = createUvFixture();
+  const ledger = { addedDate: "2026-11-15", reason: "Python compatibility" };
+  const python = { ecosystem: "PyPI", ledger };
+  const appendix = { "urllib3@==2.8.0": python };
+  const configPath = join(TEST_DIR, target);
+  writeFileSync(configPath, JSON.stringify({ appendix, compactAppendix }));
+  if (target === "ledger.json") {
+    const source = 'module.exports = { appendixSource: "ledger.json", compactAppendix: true };\n';
+    writeFileSync(join(TEST_DIR, "pastoralist.config.cjs"), source);
+  }
+  const saved = Object.assign({}, fixture, { configPath, python });
+  return saved;
+};
+
+const sharedUvLedgerTargets: Array<[string, boolean]> = [
+  [".pastoralistrc", false],
+  [".pastoralistrc", true],
+  ["ledger.json", true],
+];
+
+sharedUvLedgerTargets.forEach(([target, compactAppendix]) => {
+  test(`uv: root JavaScript preserves nested Python records in ${target} compact=${compactAppendix}`, async (t) => {
+    const fixture = createSharedUvLedgerFixture(target, compactAppendix);
+    const { python } = fixture;
+    const first = await runMixedJsFixture(t, TEST_DIR, { alpha: "1.0.1" });
+    assert.strictEqual(first.success, true, first.errors.join("\n"));
+    const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.deepStrictEqual(written.appendix["urllib3@==2.8.0"], python);
+    assert.strictEqual(written.appendix["alpha@1.0.1"].ecosystem, "npm");
+    const second = await runMixedJsFixture(t, TEST_DIR, {});
+    assert.strictEqual(second.success, true, second.errors.join("\n"));
+    const updated = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.deepStrictEqual(updated.appendix, { "urllib3@==2.8.0": python });
+    assert.strictEqual(existsSync(join(TEST_DIR, "pyproject.toml")), false);
+    assertUvFilesUnchanged(fixture);
+  });
+});
+
+test("uv: refresh preserves explicitly kept Python ledger records", async (t) => {
+  const fixture = createUvFixture();
+  const ledger = { addedDate: "2026-11-15", reason: "Compatibility record", keep: true };
+  const entry = { ecosystem: "PyPI", ledger };
+  const appendix = { "urllib3@==2.8.0": entry };
+  writeFileSync(fixture.configPath, JSON.stringify({ appendix }));
+  const manifest = fixture.manifest.replace(/^override-dependencies.*$/m, "");
+  writeFileSync(fixture.path, manifest);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.deepStrictEqual(written.appendix["urllib3@==2.8.0"], entry);
+});
+
+test("uv: an ecosystem key collision fails before changing the ledger", async (t) => {
+  const fixture = createUvFixture();
+  const entry = { ecosystem: "npm", addedDate: "2026-11-15" };
+  const appendix = { "urllib3@==2.8.0": entry };
+  const config = JSON.stringify({ appendix });
+  writeFileSync(fixture.configPath, config);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /belongs to another ecosystem/);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
+  assertUvFilesUnchanged(fixture);
+});
+
+[false, true].forEach((compactAppendix) => {
+  test(`uv: refresh removes stale JavaScript overrides with compact=${compactAppendix}`, async (t) => {
+    const fixture = createUvFixture();
+    writeFileSync(fixture.configPath, JSON.stringify({ compactAppendix }));
+    const python = await runUvFixture(t, fixture.root);
+    assert.strictEqual(python.success, true, python.errors.join("\n"));
+    const first = await runMixedJsFixture(t, fixture.root, { alpha: "1.0.1" });
+    assert.strictEqual(first.success, true, first.errors.join("\n"));
+    const second = await runMixedJsFixture(t, fixture.root, { alpha: "1.0.2" });
+    assert.strictEqual(second.success, true, second.errors.join("\n"));
+    const updated = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.strictEqual(updated.appendix["alpha@1.0.1"], undefined);
+    assert.strictEqual(updated.appendix["alpha@1.0.2"].ecosystem, "npm");
+    const third = await runMixedJsFixture(t, fixture.root, {});
+    assert.strictEqual(third.success, true, third.errors.join("\n"));
+    const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.deepStrictEqual(Object.keys(written.appendix), ["urllib3@==2.8.0"]);
+    assert.strictEqual(written.appendix["urllib3@==2.8.0"].ecosystem, "PyPI");
+  });
+});
+
+const UV_EXTRAS_LOCK = `version = 1
+[[package]]
+name = "uv-fixture"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [{ name = "requests" }, { name = "plain" }, { name = "socks" }]
+[[package]]
+name = "plain"
+version = "1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [{ name = "requests" }]
+[[package]]
+name = "socks"
+version = "1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [{ name = "requests", extra = ["socks"] }]
+[[package]]
+name = "requests"
+version = "2.32.3"
+source = { registry = "https://pypi.org/simple" }
+[package.optional-dependencies]
+socks = [{ name = "pysocks" }]
+[package.dev-dependencies]
+test = [{ name = "pysocks" }]
+[[package]]
+name = "pysocks"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+`;
+
+test("uv: optional dependencies follow only the consumers requesting extras", async (t) => {
+  const fixture = createUvFixture();
+  const manifest = fixture.manifest
+    .replace('"requests==2.32.3"', '"requests==2.32.3", "plain==1", "socks==1"')
+    .replace("urllib3==2.8.0", "pysocks==1.7.1");
+  writeFileSync(fixture.path, manifest);
+  writeFileSync(fixture.lockPath, UV_EXTRAS_LOCK);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.strictEqual(
+    written.appendix["pysocks@==1.7.1"].dependents["uv-fixture"],
+    "pysocks (required by socks)",
+  );
+});
+
+test("uv: executable config tracks through an explicit JSON appendix target", async (t) => {
+  const fixture = createUvFixture();
+  const sourcePath = join(fixture.root, "pastoralist.config.cjs");
+  const source = 'module.exports = { appendixSource: "ledger.json", compactAppendix: true };\n';
+  writeFileSync(sourcePath, source);
+  const first = await runUvFixture(t, fixture.root);
+  assert.strictEqual(first.success, true, first.errors.join("\n"));
+  const ledgerPath = join(fixture.root, "ledger.json");
+  const written = readFileSync(ledgerPath, "utf8");
+  assertCompactUvAppendix(written);
+  const second = await runUvFixture(t, fixture.root);
+  assert.strictEqual(second.success, true, second.errors.join("\n"));
+  assert.strictEqual(second.updated, false);
+  assert.strictEqual(readFileSync(ledgerPath, "utf8"), written);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+  assert.strictEqual(readFileSync(sourcePath, "utf8"), source);
+  assertUvFilesUnchanged(fixture);
+});
+
+const invalidUvLocks = ["version = 999\n", 'version = "broken', "version = 1\npackage = []\n"];
+
+invalidUvLocks.forEach((lock) => {
+  test(`uv: incomplete lock evidence never proves an override unused ${lock}`, async (t) => {
+    const fixture = createUvFixture();
+    writeFileSync(fixture.lockPath, lock);
+    const result = await runUvFixture(t, fixture.root);
+    assert.strictEqual(result.success, true, result.errors.join("\n"));
+    assert.strictEqual(result.unusedOverrideCount, 0);
+    const config = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+    assert.match(config.appendix["urllib3@==2.8.0"].dependents["uv-fixture"], /usage unknown/);
+    assert.strictEqual(readFileSync(fixture.lockPath, "utf8"), lock);
+  });
+});
 
 const REMOVAL_FIXTURE_VERSIONS: Record<string, string> = {
   lodash: "4.17.21",

@@ -263,11 +263,17 @@ const validateStrictLedger = (value: unknown): boolean => {
   return strictLedger;
 };
 
+const isAppendixEcosystem = (value: unknown): boolean => {
+  const valid = value === "npm" || value === "PyPI";
+  return valid;
+};
+
 const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
   APPENDIX_STRING_ARRAY_FIELDS,
   isStringArray,
 ).concat([
   { field: "addedDate", validator: isString },
+  { field: "ecosystem", validator: isAppendixEcosystem },
   { field: "dependents", validator: isRecord },
   { field: "ledger", validator: validateLedger },
 ]);

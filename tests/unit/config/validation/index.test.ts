@@ -49,6 +49,25 @@ const COMPATIBILITY_CONFIGS = [
     appendix: incompleteCveAppendix,
   },
 ];
+
+["npm", "PyPI"].forEach((ecosystem) => {
+  test(`validateConfig - accepts ${ecosystem} appendix ownership in strict mode`, () => {
+    const item = { addedDate: "2026-11-16", ecosystem };
+    const appendix = { "pkg@1": item };
+    const config = { $schema: PASTORALIST_SCHEMA_PATH, appendix };
+    assert.deepStrictEqual(validateConfig(config), config);
+    assert.deepStrictEqual(schema.$defs.appendixItem.properties.ecosystem.enum, ["npm", "PyPI"]);
+  });
+});
+
+test("validateConfig - rejects unsupported appendix ecosystems", () => {
+  const item = { addedDate: "2026-11-16", ecosystem: "unsupported" };
+  const appendix = { "pkg@1": item };
+  const config = { appendix };
+  assert.strictEqual(safeValidateConfig(config), undefined);
+  const strictConfig = Object.assign({}, config, { $schema: PASTORALIST_SCHEMA_PATH });
+  assert.strictEqual(safeValidateConfig(strictConfig), undefined);
+});
 test("validateConfig - should reject non-object", () => {
   assert.throws(() => validateConfig(null), errorIncludes("Invalid config structure"));
   assert.throws(() => validateConfig(undefined), errorIncludes("Invalid config structure"));

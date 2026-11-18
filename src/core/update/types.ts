@@ -144,6 +144,6 @@ export interface WriteResultContext {
   finalAppendix: Appendix;
   finalOverrides: OverridesType;
   overrideSource?: OverrideSource;
-  options: { dryRun?: boolean; outputFormat?: "text" | "json" };
+  options: Pick<Options, "dryRun" | "outputFormat" | "nativeProject" | "config">;
   isTesting: boolean;
 }

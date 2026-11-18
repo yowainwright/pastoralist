@@ -95,6 +95,7 @@ export interface CveDetail {
 }
 
 export interface AppendixItem {
+  ecosystem?: "npm" | "PyPI";
   rootDeps?: Array<string>;
   dependents?: Record<string, string>;
   patches?: Array<string>;
@@ -260,6 +261,8 @@ export interface PathOptions {
 }
 
 export interface Options extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
+  nativeProject?: import("./mgrs/types").NativeProject;
+  appendixEcosystem?: AppendixItem["ecosystem"];
   appendix?: Appendix;
   appendixTarget?: AppendixTarget;
   clearCache?: boolean;

@@ -5943,11 +5943,11 @@ test("CLI onboarding awaits completion and forwards project paths", async () => 
   assert.deepStrictEqual(observed, { root: "/project", path: "custom.json" });
 });
 
-describe("JSON Output Result Builders", () => {
-  describe("createEmptyResult", () => {
-    test("returns correct structure with all fields", () => {
+const emptyResultCases = [
+  {
+    name: "returns correct structure with all fields",
+    run: () => {
       const result = createEmptyResult();
-
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.hasSecurityIssues, false);
       assert.strictEqual(result.hasUnusedOverrides, false);
@@ -5959,232 +5959,269 @@ describe("JSON Output Result Builders", () => {
       assert.deepStrictEqual(result.securityAlerts, []);
       assert.deepStrictEqual(result.unusedOverrides, []);
       assert.deepStrictEqual(result.appliedOverrides, {});
-    });
-
-    test("returns new object each call (immutable)", () => {
+    },
+  },
+  {
+    name: "returns new object each call (immutable)",
+    run: () => {
       const result1 = createEmptyResult();
       const result2 = createEmptyResult();
-
       assert.notStrictEqual(result1, result2);
       assert.deepStrictEqual(result1, result2);
-    });
-  });
+    },
+  },
+];
 
-  describe("createErrorResult", () => {
-    test("creates error result with message from Error", () => {
+const errorResultCases = [
+  {
+    name: "creates error result with message from Error",
+    run: () => {
       const error = new Error("Something went wrong");
       const result = createErrorResult(error);
-
       assert.strictEqual(result.success, false);
       assert.deepStrictEqual(result.errors, ["Something went wrong"]);
       assert.strictEqual(result.hasSecurityIssues, false);
       assert.strictEqual(result.updated, false);
-    });
-
-    test("creates error result from string", () => {
+    },
+  },
+  {
+    name: "creates error result from string",
+    run: () => {
       const result = createErrorResult("String error message");
-
       assert.strictEqual(result.success, false);
       assert.deepStrictEqual(result.errors, ["String error message"]);
-    });
-
-    test("creates error result from unknown type", () => {
+    },
+  },
+  {
+    name: "creates error result from unknown type",
+    run: () => {
       const result = createErrorResult({ custom: "error object" });
-
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.errors.length, 1);
       assert.ok(result.errors[0].includes("object"));
-    });
-  });
+    },
+  },
+];
 
-  describe("buildUpdateResult", () => {
-    test("computes overrideCount correctly", () => {
+const createUnusedOverrideContext = () => {
+  const finalOverrides = { axios: "1.0.0", lodash: "4.17.21" };
+  const axiosDependents = { root: "^1.0.0" };
+  const usedEntry = { dependents: axiosDependents };
+  const lodashDependents = { root: "(unused override)" };
+  const unusedEntry = { dependents: lodashDependents };
+  const finalAppendix = { "axios@1.0.0": usedEntry, "lodash@4.17.21": unusedEntry };
+  const updateContext = { finalOverrides, finalAppendix };
+  return updateContext;
+};
+
+const updateResultCases = [
+  {
+    name: "computes overrideCount correctly",
+    run: () => {
       const updateContext = createMockUpdateContext({ lodash: "4.17.21", axios: "1.0.0" }, {});
       const config = createMockConfig();
-
       const result = buildUpdateResult(updateContext, config, false);
-
       assert.strictEqual(result.overrideCount, 2);
       assert.deepStrictEqual(result.appliedOverrides, {
         lodash: "4.17.21",
         axios: "1.0.0",
       });
-    });
-
-    test("filters non-string overrides from appliedOverrides", () => {
+    },
+  },
+  {
+    name: "filters non-string overrides from appliedOverrides",
+    run: () => {
+      const complex = { ".": "1.0.0", "dep>sub": "2.0.0" };
+      const finalOverrides = {
+        lodash: "4.17.21",
+        complex,
+      };
+      const finalAppendix = {};
       const updateContext = {
-        finalOverrides: {
-          lodash: "4.17.21",
-          complex: { ".": "1.0.0", "dep>sub": "2.0.0" },
-        },
-        finalAppendix: {},
+        finalOverrides,
+        finalAppendix,
       };
       const config = createMockConfig();
-
       const result = buildUpdateResult(updateContext, config, false);
-
       assert.strictEqual(result.overrideCount, 2);
       assert.deepStrictEqual(result.appliedOverrides, { lodash: "4.17.21" });
-    });
-
-    test("reports unused override entries", () => {
-      const updateContext = {
-        finalOverrides: {
-          axios: "1.0.0",
-          lodash: "4.17.21",
-        },
-        finalAppendix: {
-          "axios@1.0.0": { dependents: { root: "^1.0.0" } },
-          "lodash@4.17.21": { dependents: { root: "(unused override)" } },
-        },
-      };
+    },
+  },
+  {
+    name: "reports unused override entries",
+    run: () => {
+      const updateContext = createUnusedOverrideContext();
       const config = createMockConfig();
-
       const result = buildUpdateResult(updateContext, config, false);
-
       assert.strictEqual(result.hasUnusedOverrides, true);
       assert.strictEqual(result.unusedOverrideCount, 1);
       assert.deepStrictEqual(result.unusedOverrides, ["lodash@4.17.21"]);
-    });
-
-    test("detects changes when appendix differs", () => {
+    },
+  },
+  {
+    name: "detects changes when appendix differs",
+    run: () => {
+      const finalOverrides = { lodash: "4.17.21" };
+      const dependents = { root: "^4.0.0" };
+      const lodash41721 = { dependents };
+      const finalAppendix = { "lodash@4.17.21": lodash41721 };
       const updateContext = {
-        finalOverrides: { lodash: "4.17.21" },
-        finalAppendix: { "lodash@4.17.21": { dependents: { root: "^4.0.0" } } },
+        finalOverrides,
+        finalAppendix,
       };
+      const appendix = {};
+      const resultConfig = { appendix };
       const config = createMockConfig({
-        pastoralist: { appendix: {} },
+        pastoralist: resultConfig,
       });
-
       const result = buildUpdateResult(updateContext, config, false);
-
       assert.strictEqual(result.updated, true);
-    });
-
-    test("updated is false when dryRun is true", () => {
+    },
+  },
+  {
+    name: "updated is false when dryRun is true",
+    run: () => {
+      const finalOverrides = { lodash: "4.17.21" };
+      const dependents = {};
+      const lodash41721 = { dependents };
+      const finalAppendix = { "lodash@4.17.21": lodash41721 };
       const updateContext = {
-        finalOverrides: { lodash: "4.17.21" },
-        finalAppendix: { "lodash@4.17.21": { dependents: {} } },
+        finalOverrides,
+        finalAppendix,
       };
       const config = createMockConfig();
-
       const result = buildUpdateResult(updateContext, config, true);
-
       assert.strictEqual(result.updated, false);
-    });
-
-    test("updated is false when no changes", () => {
-      const existingAppendix = { "lodash@4.17.21": { dependents: {} } };
+    },
+  },
+  {
+    name: "updated is false when no changes",
+    run: () => {
+      const dependents = {};
+      const lodash41721 = { dependents };
+      const existingAppendix = { "lodash@4.17.21": lodash41721 };
       const existingOverrides = { lodash: "4.17.21" };
-
       const updateContext = {
         finalOverrides: existingOverrides,
         finalAppendix: existingAppendix,
       };
+      const resultConfig = { appendix: existingAppendix };
       const config = createMockConfig({
         overrides: existingOverrides,
-        pastoralist: { appendix: existingAppendix },
+        pastoralist: resultConfig,
       });
-
       const result = buildUpdateResult(updateContext, config, false);
-
       assert.strictEqual(result.updated, false);
-    });
+    },
+  },
+];
+
+const jsonOutputCases = [
+  {
+    name: "outputs JSON when outputFormat is json",
+    run: async () => {
+      const console = captureConsoleOutput();
+      console.start();
+      const deps = createActionDeps();
+      const result = await action({ outputFormat: "json" }, deps);
+      console.stop();
+      const output = console.getOutput();
+      assert.strictEqual(output.length, 1);
+      const parsed = JSON.parse(output[0]);
+      assert.strictEqual(parsed.success, true);
+      assert.strictEqual(parsed.hasSecurityIssues, false);
+      assert.strictEqual(result.success, true);
+    },
+  },
+  {
+    name: "does not call spinner.succeed in JSON mode",
+    run: async () => {
+      const spinner = createMockSpinner();
+      const deps = createActionDeps({ spinner });
+      await action({ outputFormat: "json" }, deps);
+      assert.strictEqual(spinner.succeed.mock.callCount(), 0);
+    },
+  },
+  {
+    name: "returns PastoralistResult with security data",
+    run: async () => {
+      const cves = ["CVE-2021-23337"];
+      const securityResults = createMockSecurityResults([
+        { packageName: "lodash", severity: "high", cves },
+      ]);
+      const deps = createActionDeps({
+        checkSecurity: true,
+        securityResults,
+      });
+      const result = await action({}, deps);
+      assert.strictEqual(result.hasSecurityIssues, true);
+      assert.strictEqual(result.securityAlertCount, 1);
+      assert.strictEqual(result.securityAlerts.length, 1);
+      assert.strictEqual(result.securityAlerts?.[0].packageName, "lodash");
+    },
+  },
+  {
+    name: "JSON output contains no extra console noise",
+    run: async () => {
+      const console = captureConsoleOutput();
+      console.start();
+      const deps = createActionDeps();
+      await action({ outputFormat: "json", dryRun: true }, deps);
+      console.stop();
+      const output = console.getOutput();
+      assert.strictEqual(output.length, 1);
+      const isValidJson = () => {
+        try {
+          JSON.parse(output[0]);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      assert.strictEqual(isValidJson(), true);
+    },
+  },
+  {
+    name: "JSON mode still applies handleSecurityResults",
+    run: async () => {
+      const securityResults = createMockSecurityResults([
+        { packageName: "lodash", severity: "high" },
+      ]);
+      const deps = createActionDeps({
+        checkSecurity: true,
+        securityResults,
+      });
+      await action({ outputFormat: "json" }, deps);
+      assert.ok(deps.handleSecurityResults.mock.callCount() > 0);
+    },
+  },
+  {
+    name: "text mode calls handleSecurityResults",
+    run: async () => {
+      const securityResults = createMockSecurityResults([
+        { packageName: "lodash", severity: "high" },
+      ]);
+      const deps = createActionDeps({
+        checkSecurity: true,
+        securityResults,
+      });
+      await action({ outputFormat: "text" }, deps);
+      assert.ok(deps.handleSecurityResults.mock.callCount() > 0);
+    },
+  },
+];
+
+describe("JSON Output Result Builders", () => {
+  describe("createEmptyResult", () => {
+    emptyResultCases.forEach(({ name, run: runCase }) => test(name, runCase));
+  });
+  describe("createErrorResult", () => {
+    errorResultCases.forEach(({ name, run: runCase }) => test(name, runCase));
+  });
+  describe("buildUpdateResult", () => {
+    updateResultCases.forEach(({ name, run: runCase }) => test(name, runCase));
   });
 });
-
 describe("action with JSON output", () => {
-  test("outputs JSON when outputFormat is json", async () => {
-    const console = captureConsoleOutput();
-    console.start();
-
-    const deps = createActionDeps();
-    const result = await action({ outputFormat: "json" }, deps);
-
-    console.stop();
-    const output = console.getOutput();
-
-    assert.strictEqual(output.length, 1);
-    const parsed = JSON.parse(output[0]);
-    assert.strictEqual(parsed.success, true);
-    assert.strictEqual(parsed.hasSecurityIssues, false);
-    assert.strictEqual(result.success, true);
-  });
-
-  test("does not call spinner.succeed in JSON mode", async () => {
-    const spinner = createMockSpinner();
-    const deps = createActionDeps({ spinner });
-
-    await action({ outputFormat: "json" }, deps);
-
-    assert.strictEqual(spinner.succeed.mock.callCount(), 0);
-  });
-
-  test("returns PastoralistResult with security data", async () => {
-    const securityResults = createMockSecurityResults([
-      { packageName: "lodash", severity: "high", cves: ["CVE-2021-23337"] },
-    ]);
-    const deps = createActionDeps({
-      checkSecurity: true,
-      securityResults,
-    });
-
-    const result = await action({}, deps);
-
-    assert.strictEqual(result.hasSecurityIssues, true);
-    assert.strictEqual(result.securityAlertCount, 1);
-    assert.strictEqual(result.securityAlerts.length, 1);
-    assert.strictEqual(result.securityAlerts?.[0].packageName, "lodash");
-  });
-
-  test("JSON output contains no extra console noise", async () => {
-    const console = captureConsoleOutput();
-    console.start();
-
-    const deps = createActionDeps();
-    await action({ outputFormat: "json", dryRun: true }, deps);
-
-    console.stop();
-    const output = console.getOutput();
-
-    assert.strictEqual(output.length, 1);
-
-    const isValidJson = () => {
-      try {
-        JSON.parse(output[0]);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    assert.strictEqual(isValidJson(), true);
-  });
-
-  test("JSON mode still applies handleSecurityResults", async () => {
-    const securityResults = createMockSecurityResults([
-      { packageName: "lodash", severity: "high" },
-    ]);
-    const deps = createActionDeps({
-      checkSecurity: true,
-      securityResults,
-    });
-
-    await action({ outputFormat: "json" }, deps);
-
-    assert.ok(deps.handleSecurityResults.mock.callCount() > 0);
-  });
-
-  test("text mode calls handleSecurityResults", async () => {
-    const securityResults = createMockSecurityResults([
-      { packageName: "lodash", severity: "high" },
-    ]);
-    const deps = createActionDeps({
-      checkSecurity: true,
-      securityResults,
-    });
-
-    await action({ outputFormat: "text" }, deps);
-
-    assert.ok(deps.handleSecurityResults.mock.callCount() > 0);
-  });
+  jsonOutputCases.forEach(({ name, run: runCase }) => test(name, runCase));
 });

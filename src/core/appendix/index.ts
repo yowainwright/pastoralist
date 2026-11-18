@@ -90,7 +90,8 @@ const updateTargetConfig = (config: PastoralistConfig, appendix: Appendix): Past
 
 const getWriteMode = (path: string): number | undefined => {
   if (!existsSync(path)) return undefined;
-  const writeMode = statSync(path).mode;
+  const filename = String(path);
+  const writeMode = statSync(filename).mode;
   return writeMode;
 };
 

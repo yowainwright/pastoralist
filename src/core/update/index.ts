@@ -13,6 +13,7 @@ import type {
   WriteResultContext,
 } from "../../types";
 import { logger } from "../../observability";
+import { assertUvTrackingOptions } from "../../mgrs/uv";
 import { pick } from "../../utils";
 import {
   clearDependencyGraphCache,
@@ -52,6 +53,7 @@ import { writeResult, determineProcessingMode, findPackageFiles } from "./utils"
 import type { SecurityProviderType } from "../security/types";
 import type {
   OverrideChangeCounts,
+  ProcessingMode,
   SeverityCounts,
   UpdateContext,
   UpdateMetrics,
@@ -64,6 +66,7 @@ const getPrimarySecurityProvider = (
 ): SecurityProviderType | undefined => (Array.isArray(provider) ? provider[0] : provider);
 
 const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
+  if (ctx.options.nativeProject) return ctx;
   const patchMap = detectPatches(ctx.root);
   const patchedPackages = Object.keys(patchMap);
 
@@ -79,6 +82,12 @@ const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
   const { config, path: manifestPath } = ctx;
   if (!config) return ctx;
 
+  if (ctx.options.nativeProject) {
+    const overrides = config.overrides ?? {};
+    const result = Object.assign({}, ctx, { overrides });
+    return result;
+  }
+
   const overrideSource = resolveOverrideSource({ config, manifestPath });
   const overridesData = resolveOverridesFromSource(overrideSource);
   let overrides = getOverridesByType(overridesData) || {};
@@ -92,8 +101,22 @@ const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
   return result;
 };
 
+const determineNativeMode = (ctx: UpdateContext): UpdateContext => {
+  const overrides = ctx.overrides ?? {};
+  const hasRootOverrides = Object.keys(overrides).length > 0;
+  const rootDeps = ctx.config?.dependencies ?? {};
+  const missingInRoot: string[] = [];
+  const mode: ProcessingMode = { mode: "root", depPaths: null, hasRootOverrides, missingInRoot };
+  const result = Object.assign({}, ctx, { hasRootOverrides, rootDeps, missingInRoot, mode });
+  return result;
+};
+
 const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.config) return ctx;
+  if (ctx.options.nativeProject) {
+    const mode = determineNativeMode(ctx);
+    return mode;
+  }
 
   const overrides = ctx.overrides || {};
   const hasRootOverrides = Object.keys(overrides).length > 0;
@@ -101,13 +124,8 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
   const rootDeps = Object.assign({}, dependencies, devDependencies, peerDependencies);
 
   const missingInRoot = checkMonorepoOverrides(overrides, rootDeps, ctx.log, ctx.options);
-  const mode = determineProcessingMode(
-    ctx.options,
-    ctx.config,
-    hasRootOverrides,
-    missingInRoot,
-    ctx.log,
-  );
+  const modeArgs = [hasRootOverrides, missingInRoot, ctx.log] as const;
+  const mode = determineProcessingMode(ctx.options, ctx.config, ...modeArgs);
 
   const result = Object.assign({}, ctx, { hasRootOverrides, rootDeps, missingInRoot, mode });
   return result;
@@ -126,6 +144,7 @@ const canProcessWorkspaceStep = (
 };
 
 const resolveDependencyTree = (ctx: UpdateContext): Record<string, string> | undefined => {
+  if (ctx.options.nativeProject) return undefined;
   const dependencyTree = ctx.dependencyTree;
   if (dependencyTree) return dependencyTree;
   if (ctx.isTesting) return undefined;
@@ -161,6 +180,8 @@ const resolveProvidedDependencyGraphContext = (
   ctx: UpdateContext,
   dependencyTree: Record<string, string> | undefined,
 ): DependencyGraphContext | undefined => {
+  const nativeContext = resolveNativeGraphContext(ctx);
+  if (nativeContext) return nativeContext;
   if (ctx.dependencyGraphAvailable === undefined) return undefined;
   const graphOptions = pick(ctx, [
     "dependencyGraph",
@@ -196,6 +217,13 @@ const createProjectDependencyGraphContext = (
     dependencyTree,
   };
   const graphContext = createDependencyGraphContext(context);
+  return graphContext;
+};
+
+const resolveNativeGraphContext = (ctx: UpdateContext): DependencyGraphContext | undefined => {
+  if (!ctx.options.nativeProject) return undefined;
+  const { tracking: dependencyTracking } = ctx.options.nativeProject;
+  const graphContext = { dependencyTracking, dependencyGraphAvailable: false };
   return graphContext;
 };
 
@@ -330,6 +358,50 @@ const mergeWorkspaceAppendix = (ctx: UpdateContext, appendix: Appendix): Appendi
   return mergedAppendix;
 };
 
+const partitionEcosystemAppendix = (
+  existing: Appendix,
+  fresh: Appendix,
+  ecosystem: AppendixItem["ecosystem"],
+) => {
+  const selected: Appendix = {};
+  const foreign: Appendix = {};
+  Object.entries(existing).forEach(([key, item]) => {
+    const matchesLegacy = ecosystem === "npm" || Boolean(fresh[key]);
+    const isLegacy = !item.ecosystem && matchesLegacy;
+    const isSelected = item.ecosystem === ecosystem || isLegacy;
+    const target = isSelected ? selected : foreign;
+    target[key] = item;
+  });
+  const partitioned = { selected, foreign };
+  return partitioned;
+};
+
+const hasSharedAppendix = (ctx: UpdateContext): boolean => {
+  if (ctx.options.appendixEcosystem) return true;
+  const appendix = ctx.config?.pastoralist?.appendix ?? {};
+  const hasPythonRecords = Object.values(appendix).some((item) => item.ecosystem === "PyPI");
+  return hasPythonRecords;
+};
+
+const refreshEcosystemAppendix = (ctx: UpdateContext, fresh: Appendix): Appendix => {
+  const existing = ctx.existingAppendix || {};
+  const ecosystem = ctx.options.appendixEcosystem ?? "npm";
+  if (!hasSharedAppendix(ctx)) {
+    const refreshed = carryExistingLedgers(fresh, existing);
+    return refreshed;
+  }
+  const { selected, foreign } = partitionEcosystemAppendix(existing, fresh, ecosystem);
+  const collision = Object.keys(foreign).find((key) => fresh[key]);
+  if (collision) throw new Error(`Appendix key belongs to another ecosystem: ${collision}`);
+  const refreshed = carryExistingLedgers(fresh, selected);
+  const tagged: Array<[string, AppendixItem]> = Object.entries(refreshed).map(([key, item]) => [
+    key,
+    Object.assign({}, item, { ecosystem }),
+  ]);
+  const appendix = Object.assign({}, foreign, Object.fromEntries(tagged));
+  return appendix;
+};
+
 const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
   const { config, overrides } = ctx;
   if (!config) return ctx;
@@ -337,8 +409,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
   const graphContext = resolveDependencyGraphContext(ctx);
   const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext);
   const mergedAppendix = dropSupersededUnusedDependents(mergeWorkspaceAppendix(ctx, rootAppendix));
-  const existingAppendix = ctx.existingAppendix || {};
-  const appendix = carryExistingLedgers(mergedAppendix, existingAppendix);
+  const appendix = refreshEcosystemAppendix(ctx, mergedAppendix);
   const result = Object.assign({}, ctx, graphContext, { appendix });
   return result;
 };
@@ -700,6 +771,10 @@ const countSeverities = (details: Array<{ severity?: string }> | undefined): Sev
 
 const getPackagesScanned = (ctx: UpdateContext): number => {
   const opts = ctx.options;
+  if (opts.nativeProject) {
+    const { packageCount } = opts.nativeProject;
+    return packageCount;
+  }
   const securityPackagesScanned = opts?.securityPackagesScanned;
   if (securityPackagesScanned !== undefined) return securityPackagesScanned;
   const isJsonOutput = opts?.outputFormat === "json";
@@ -713,7 +788,7 @@ const getSecurityDetails = (ctx: UpdateContext): NonNullable<Options["securityOv
   ctx.options?.securityOverrideDetails || [];
 
 const getExistingOverrides = (ctx: UpdateContext): Record<string, unknown> | undefined =>
-  ctx.overrideSource?.overrides;
+  ctx.overrideSource?.overrides ?? ctx.config?.overrides;
 
 const buildSeverityMetrics = (details: Options["securityOverrideDetails"]) => {
   const {
@@ -764,6 +839,7 @@ const pipe = <T>(initialValue: T, ...fns: Array<(value: T) => T>): T => {
 };
 
 const stepHandleNoOverrides = (ctx: UpdateContext): UpdateContext => {
+  if (hasSharedAppendix(ctx)) return ctx;
   if (ctx.mode?.hasRootOverrides) return ctx;
   const isRootMode = ctx.mode?.mode === "root";
   const hasConfig = Boolean(ctx.config);
@@ -849,6 +925,7 @@ const logUpdateComplete = (ctx: UpdateContext): void => {
 };
 
 export const update = (options: Options): UpdateContext => {
+  if (options.nativeProject) assertUvTrackingOptions(options);
   if (options?.clearCache === true) clearUpdateCaches();
 
   const runtime = createUpdateRuntime(options);

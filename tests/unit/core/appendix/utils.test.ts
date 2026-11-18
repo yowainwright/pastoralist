@@ -27,6 +27,7 @@ import {
   removeAppendixKeys,
   removeOverrideKeys,
   toCompactAppendix,
+  normalizeAppendix,
 } from "../../../../src/core/appendix/utils";
 import type { Appendix, AppendixItem, SecurityOverrideDetail } from "../../../../src/types";
 import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup";
@@ -37,15 +38,10 @@ test("mergeOverrideReasons - should return reason when provided", () => {
   assert.strictEqual(result, "security fix");
 });
 
-const cves = ["CVE-2021-23337"];
+const SECURITY_CVES = ["CVE-2021-23337"];
 test("mergeOverrideReasons - should return security reason when no reason provided", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = mergeOverrideReasons("lodash", undefined, securityDetails, undefined);
@@ -84,12 +80,7 @@ test("mergeOverrideReasons - should return undefined when no reasons provided", 
 
 test("mergeOverrideReasons - should prioritize reason over security details", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = mergeOverrideReasons("lodash", "manual fix", securityDetails, undefined);
@@ -99,12 +90,7 @@ test("mergeOverrideReasons - should prioritize reason over security details", ()
 
 test("mergeOverrideReasons - should prioritize security details over manual reasons", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
   const manualReasons = { lodash: "manual override" };
 
@@ -122,12 +108,7 @@ test("createSecurityLedger - should return empty object when no security details
 const securityDetailsCves = ["CVE-2021-1234"];
 test("createSecurityLedger - should return empty object when package not in security details", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "axios",
-      reason: "CVE-2021-1234",
-      cves: securityDetailsCves,
-      severity: "high",
-    },
+    { packageName: "axios", reason: "CVE-2021-1234", cves: securityDetailsCves, severity: "high" },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -137,12 +118,7 @@ test("createSecurityLedger - should return empty object when package not in secu
 
 test("createSecurityLedger - should create basic security ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -153,12 +129,7 @@ test("createSecurityLedger - should create basic security ledger", () => {
 
 test("createSecurityLedger - should include provider in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, "github");
@@ -168,12 +139,7 @@ test("createSecurityLedger - should include provider in ledger", () => {
 
 test("createSecurityLedger - should include CVE in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -183,12 +149,7 @@ test("createSecurityLedger - should include CVE in ledger", () => {
 
 test("createSecurityLedger - should include severity in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cves,
-      severity: "high",
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", cves: SECURITY_CVES, severity: "high" },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -201,7 +162,7 @@ test("createSecurityLedger - should include URL in ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cves,
+      cves: SECURITY_CVES,
       severity: "high",
       url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
     },
@@ -217,7 +178,7 @@ const cveDetails = [{ cve: "CVE-2021-23337", severity: "high" }];
 const COMPLETE_LODASH_SECURITY_DETAIL: SecurityOverrideDetail = {
   packageName: "lodash",
   reason: "CVE-2021-23337",
-  cves,
+  cves: SECURITY_CVES,
   severity: "high",
   description: "Prototype pollution",
   url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -227,7 +188,7 @@ const COMPLETE_LODASH_LEDGER = {
   securityChecked: true,
   securityCheckDate,
   securityProvider: "github",
-  cves,
+  cves: SECURITY_CVES,
   cveDetails,
   severity: "high",
   url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -245,11 +206,7 @@ test("createSecurityLedger - should include all fields when provided", () => {
 const sources = ["osv"];
 test("createSecurityLedger - should mark single-source security details as possible", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      sources,
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", sources },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -260,11 +217,7 @@ test("createSecurityLedger - should mark single-source security details as possi
 const securityDetailsSources = ["osv", "github"];
 test("createSecurityLedger - should mark multi-source security details as confirmed", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      sources: securityDetailsSources,
-    },
+    { packageName: "lodash", reason: "CVE-2021-23337", sources: securityDetailsSources },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -274,33 +227,38 @@ test("createSecurityLedger - should mark multi-source security details as confir
 
 const lodashEntryDependents = { "my-app": "^4.17.0" };
 const lodashEntryLedger = { addedDate: "2024-01-15" };
-const lodashEntry = {
-  dependents: lodashEntryDependents,
-  ledger: lodashEntryLedger,
-};
+const lodashEntry = { dependents: lodashEntryDependents, ledger: lodashEntryLedger };
 test("toCompactAppendix - should compact simple entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry };
 
   const result = toCompactAppendix(appendix);
 
   assert.deepStrictEqual(result["lodash@4.17.21"], { addedDate: "2024-01-15" });
 });
 
+test("toCompactAppendix - preserves ecosystem ownership through normalization", () => {
+  const ecosystem = "PyPI" as const;
+  const entry = Object.assign({}, lodashEntry, { ecosystem });
+  const appendix: Appendix = { "urllib3@==2.8.0": entry };
+  const compact = toCompactAppendix(appendix);
+  assert.deepStrictEqual(compact["urllib3@==2.8.0"], {
+    addedDate: "2024-01-15",
+    ecosystem: "PyPI",
+  });
+  assert.strictEqual(normalizeAppendix(compact)["urllib3@==2.8.0"].ecosystem, "PyPI");
+});
+
 const appendixLodashEntryLedger = {
   addedDate: "2024-01-15",
   securityChecked: true,
-  cves,
+  cves: SECURITY_CVES,
 };
 const appendixLodashEntry = {
   dependents: lodashEntryDependents,
   ledger: appendixLodashEntryLedger,
 };
 test("toCompactAppendix - should preserve entries with security info", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": appendixLodashEntry,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodashEntry };
 
   const result = toCompactAppendix(appendix);
 
@@ -309,15 +267,9 @@ test("toCompactAppendix - should preserve entries with security info", () => {
 });
 
 const patches = ["patches/lodash+4.17.21.patch"];
-const lodashEntry2 = {
-  dependents: lodashEntryDependents,
-  patches,
-  ledger: lodashEntryLedger,
-};
+const lodashEntry2 = { dependents: lodashEntryDependents, patches, ledger: lodashEntryLedger };
 test("toCompactAppendix - should preserve entries with patches", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry2,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry2 };
 
   const result = toCompactAppendix(appendix);
 
@@ -325,30 +277,17 @@ test("toCompactAppendix - should preserve entries with patches", () => {
 });
 
 test("toCompactAppendix - preserves entries with a reason", () => {
-  const reason = {
-    type: typeValue,
-    summary: "Pinned for compatibility",
-    pin: "4.17.21",
-  };
+  const reason = { type: typeValue, summary: "Pinned for compatibility", pin: "4.17.21" };
   const ledger = { addedDate: "2024-01-01", reason };
-  const lodashEntry3 = {
-    dependents: lodashEntryDependents,
-    ledger,
-  };
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry3,
-  };
+  const lodashEntry3 = { dependents: lodashEntryDependents, ledger };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry3 };
 
   assert.deepStrictEqual(toCompactAppendix(appendix)["lodash@4.17.21"], appendix["lodash@4.17.21"]);
 });
 
-const lodashEntry4 = {
-  dependents: lodashEntryDependents,
-};
+const lodashEntry4 = { dependents: lodashEntryDependents };
 test("toCompactAppendix - should generate date if missing", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry4,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry4 };
 
   const result = toCompactAppendix(appendix);
 
@@ -357,9 +296,7 @@ test("toCompactAppendix - should generate date if missing", () => {
 });
 
 test("toCompactAppendix - should use provided addedDate when ledger is missing", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry4,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry4 };
   const gitDate = "2023-03-15T12:00:00+00:00";
 
   const result = toCompactAppendix(appendix, gitDate);
@@ -368,9 +305,7 @@ test("toCompactAppendix - should use provided addedDate when ledger is missing",
 });
 
 test("toCompactAppendix - should prefer existing ledger addedDate over provided date", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry };
   const gitDate = "2023-03-15T12:00:00+00:00";
 
   const result = toCompactAppendix(appendix, gitDate);
@@ -436,10 +371,7 @@ test("buildAppendixItem - should fallback to current date when no addedDate prov
 });
 
 test("buildAppendixItem - should preserve existing ledger over provided addedDate", () => {
-  const existingLedger = {
-    addedDate: "2022-01-01T00:00:00.000Z",
-    reason: "old reason",
-  };
+  const existingLedger = { addedDate: "2022-01-01T00:00:00.000Z", reason: "old reason" };
   const gitDate = "2023-06-01T10:00:00+00:00";
 
   const result = buildAppendixItem(
@@ -455,18 +387,11 @@ test("buildAppendixItem - should preserve existing ledger over provided addedDat
 });
 
 const lodashEntry5Dependents = { root: "lodash (unused override)" };
-const lodashEntry5 = {
-  dependents: lodashEntry5Dependents,
-};
+const lodashEntry5 = { dependents: lodashEntry5Dependents };
 const axiosEntryDependents = { root: "axios@^1.0.0" };
-const axiosEntry = {
-  dependents: axiosEntryDependents,
-};
+const axiosEntry = { dependents: axiosEntryDependents };
 test("findUnusedAppendixEntries - should find entries where all dependents are unused", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry5,
-    "axios@1.0.0": axiosEntry,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry5, "axios@1.0.0": axiosEntry };
 
   const result = findUnusedAppendixEntries(appendix);
 
@@ -474,13 +399,9 @@ test("findUnusedAppendixEntries - should find entries where all dependents are u
 });
 
 const lodashEntry6Dependents = { root: "lodash@^4.17.0" };
-const lodashEntry6 = {
-  dependents: lodashEntry6Dependents,
-};
+const lodashEntry6 = { dependents: lodashEntry6Dependents };
 test("findUnusedAppendixEntries - should return empty when no unused entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry6,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry6 };
 
   const result = findUnusedAppendixEntries(appendix);
 
@@ -491,30 +412,19 @@ const lodashEntry7Dependents = {
   "pkg-a": "lodash (unused override)",
   "pkg-b": "lodash (unused override)",
 };
-const lodashEntry7 = {
-  dependents: lodashEntry7Dependents,
-};
+const lodashEntry7 = { dependents: lodashEntry7Dependents };
 test("findUnusedAppendixEntries - should handle multiple dependents all unused", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry7,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry7 };
 
   const result = findUnusedAppendixEntries(appendix);
 
   assert.deepStrictEqual(result, ["lodash@4.17.21"]);
 });
 
-const lodashEntry8Dependents = {
-  "pkg-a": "lodash (unused override)",
-  "pkg-b": "lodash@^4.17.0",
-};
-const lodashEntry8 = {
-  dependents: lodashEntry8Dependents,
-};
+const lodashEntry8Dependents = { "pkg-a": "lodash (unused override)", "pkg-b": "lodash@^4.17.0" };
+const lodashEntry8 = { dependents: lodashEntry8Dependents };
 test("findUnusedAppendixEntries - should not flag mixed dependents", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry8,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry8 };
 
   const result = findUnusedAppendixEntries(appendix);
 
@@ -524,10 +434,7 @@ test("findUnusedAppendixEntries - should not flag mixed dependents", () => {
 const lodashEntry9 = { dependents: lodashEntry5Dependents };
 const appendixAxiosEntry = { dependents: axiosEntryDependents };
 test("removeAppendixKeys - should remove specified keys", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry9,
-    "axios@1.0.0": appendixAxiosEntry,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry9, "axios@1.0.0": appendixAxiosEntry };
 
   const result = removeAppendixKeys(appendix, ["lodash@4.17.21"]);
 
@@ -562,10 +469,9 @@ test("removeOverrideKeys - should remove specified package names", () => {
 });
 
 test("normalizeLedgerCveField - converts legacy cve string to cves array", () => {
-  const ledger = {
-    addedDate: "2024-01-01",
-    cve: "CVE-2021-23337",
-  } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
+  const ledger = { addedDate: "2024-01-01", cve: "CVE-2021-23337" } as NonNullable<
+    AppendixItem["ledger"]
+  > & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
   assert.deepStrictEqual(result.cves, ["CVE-2021-23337"]);
   assert.strictEqual((result as { cve?: string }).cve, undefined);
@@ -573,11 +479,9 @@ test("normalizeLedgerCveField - converts legacy cve string to cves array", () =>
 
 const ledgerCves = ["CVE-2021-0001"];
 test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
-  const ledger = {
-    addedDate: "2024-01-01",
-    cves: ledgerCves,
-    cve: "CVE-2021-0002",
-  } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
+  const ledger = { addedDate: "2024-01-01", cves: ledgerCves, cve: "CVE-2021-0002" } as NonNullable<
+    AppendixItem["ledger"]
+  > & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
   assert.deepStrictEqual(result.cves, ["CVE-2021-0001", "CVE-2021-0002"]);
 });
@@ -585,7 +489,7 @@ test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
 test("normalizeLedgerCveField - returns ledger unchanged when no cve field", () => {
   const ledger: NonNullable<AppendixItem["ledger"]> = {
     addedDate: "2024-01-01",
-    cves,
+    cves: SECURITY_CVES,
   };
   const result = normalizeLedgerCveField(ledger);
   assert.deepStrictEqual(result, ledger);
@@ -594,7 +498,7 @@ test("normalizeLedgerCveField - returns ledger unchanged when no cve field", () 
 test("normalizeLedgerCveField - deduplicates when cve is already in cves", () => {
   const ledger = {
     addedDate: "2024-01-01",
-    cves,
+    cves: SECURITY_CVES,
     cve: "CVE-2021-23337",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
@@ -615,11 +519,7 @@ const cves3 = ["CVE-2021-0001", "CVE-2021-0002"];
 test("createSecurityLedger - deduplicates cves across multiple details", () => {
   const securityDetails: SecurityOverrideDetail[] = [
     { packageName: "lodash", reason: "vuln 1", cves: ledgerCves },
-    {
-      packageName: "lodash",
-      reason: "vuln 2",
-      cves: cves3,
-    },
+    { packageName: "lodash", reason: "vuln 2", cves: cves3 },
   ];
   const result = createSecurityLedger("lodash", securityDetails, undefined);
   assert.deepStrictEqual(result.cves, ["CVE-2021-0001", "CVE-2021-0002"]);
@@ -627,18 +527,8 @@ test("createSecurityLedger - deduplicates cves across multiple details", () => {
 
 test("createSecurityLedger - deduplicates cveDetails when multiple details share the same CVE", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "vuln 1",
-      cves: ledgerCves,
-      severity: "high",
-    },
-    {
-      packageName: "lodash",
-      reason: "vuln 2",
-      cves: cves3,
-      severity: "medium",
-    },
+    { packageName: "lodash", reason: "vuln 1", cves: ledgerCves, severity: "high" },
+    { packageName: "lodash", reason: "vuln 2", cves: cves3, severity: "medium" },
   ];
   const result = createSecurityLedger("lodash", securityDetails, undefined);
   const cveIds = result.cveDetails?.map((d) => d.cve);
@@ -647,19 +537,11 @@ test("createSecurityLedger - deduplicates cveDetails when multiple details share
 });
 
 const lodashEntry10Ledger = { addedDate: "2024-01-01", keep: true };
-const lodashEntry10 = {
-  dependents: lodashEntry5Dependents,
-  ledger: lodashEntry10Ledger,
-};
+const lodashEntry10 = { dependents: lodashEntry5Dependents, ledger: lodashEntry10Ledger };
 const axiosEntry2Dependents = { root: "axios (unused override)" };
-const axiosEntry2 = {
-  dependents: axiosEntry2Dependents,
-};
+const axiosEntry2 = { dependents: axiosEntry2Dependents };
 test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: true", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry10,
-    "axios@1.0.0": axiosEntry2,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry10, "axios@1.0.0": axiosEntry2 };
 
   const result = new Set(findUnusedAppendixEntries(appendix));
 
@@ -668,15 +550,10 @@ test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: tru
 });
 
 const lodashEntry11Dependents = { root: "root@1.0.0" };
-const lodashEntry11Ledger = { addedDate: "2024-01-01", keep: true, cves };
-const lodashEntry11 = {
-  dependents: lodashEntry11Dependents,
-  ledger: lodashEntry11Ledger,
-};
+const lodashEntry11Ledger = { addedDate: "2024-01-01", keep: true, cves: SECURITY_CVES };
+const lodashEntry11 = { dependents: lodashEntry11Dependents, ledger: lodashEntry11Ledger };
 test("toCompactAppendix - preserves full ledger for kept entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry11,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry11 };
 
   const result = toCompactAppendix(appendix);
 
@@ -686,18 +563,14 @@ test("toCompactAppendix - preserves full ledger for kept entries", () => {
 
 const itemLedger = { addedDate: "2024-01-01", keep: true };
 test("isKeptEntry - returns true for keep: true", () => {
-  const item: AppendixItem = {
-    ledger: itemLedger,
-  };
+  const item: AppendixItem = { ledger: itemLedger };
   assert.strictEqual(isKeptEntry(item), true);
 });
 
-const keep = { reason: "pending review" };
-const ledger2 = { addedDate: "2024-01-01", keep };
+const PENDING_REVIEW_KEEP = { reason: "pending review" };
+const ledger2 = { addedDate: "2024-01-01", keep: PENDING_REVIEW_KEEP };
 test("isKeptEntry - returns true for KeepConstraint object", () => {
-  const item: AppendixItem = {
-    ledger: ledger2,
-  };
+  const item: AppendixItem = { ledger: ledger2 };
   assert.strictEqual(isKeptEntry(item), true);
 });
 
@@ -707,16 +580,14 @@ test("isKeptEntry - returns false when keep is absent", () => {
   assert.strictEqual(isKeptEntry(item), false);
 });
 
-const dependents = {};
+const EMPTY_DEPENDENTS = {};
 test("isKeptEntry - returns false when no ledger", () => {
-  const item: AppendixItem = { dependents };
+  const item: AppendixItem = { dependents: EMPTY_DEPENDENTS };
   assert.strictEqual(isKeptEntry(item), false);
 });
 
 test("isKeepExpired - returns false for keep: true (no expiry possible)", () => {
-  const item: AppendixItem = {
-    ledger: itemLedger,
-  };
+  const item: AppendixItem = { ledger: itemLedger };
   assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
@@ -726,46 +597,29 @@ test("isKeepExpired - returns false when no keep", () => {
 });
 
 const ledger4Keep = { reason: "temp", until: "2020-01-01" };
-const ledger4 = {
-  addedDate: "2024-01-01",
-  keep: ledger4Keep,
-};
+const ledger4 = { addedDate: "2024-01-01", keep: ledger4Keep };
 test("isKeepExpired - returns true when until date is in the past", () => {
-  const item: AppendixItem = {
-    ledger: ledger4,
-  };
+  const item: AppendixItem = { ledger: ledger4 };
   assert.strictEqual(isKeepExpired(item, "lodash", {}), true);
 });
 
 const ledger5Keep = { reason: "temp", until: "2099-01-01" };
-const ledger5 = {
-  addedDate: "2024-01-01",
-  keep: ledger5Keep,
-};
+const ledger5 = { addedDate: "2024-01-01", keep: ledger5Keep };
 test("isKeepExpired - returns false when until date is in the future", () => {
-  const item: AppendixItem = {
-    ledger: ledger5,
-  };
+  const item: AppendixItem = { ledger: ledger5 };
   assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 const ledger6Keep = { reason: "patch pending", untilVersion: "4.18.0" };
-const ledger6 = {
-  addedDate: "2024-01-01",
-  keep: ledger6Keep,
-};
+const ledger6 = { addedDate: "2024-01-01", keep: ledger6Keep };
 test("isKeepExpired - returns true when dep version meets untilVersion", () => {
-  const item: AppendixItem = {
-    ledger: ledger6,
-  };
+  const item: AppendixItem = { ledger: ledger6 };
   const rootDeps = { lodash: "^4.18.0" };
   assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), true);
 });
 
 test("isKeepExpired - returns false when dep version is below untilVersion", () => {
-  const item: AppendixItem = {
-    ledger: ledger6,
-  };
+  const item: AppendixItem = { ledger: ledger6 };
   const rootDeps = { lodash: "^4.17.21" };
   assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), false);
 });
@@ -777,79 +631,45 @@ test("isKeepExpired - reads the version from an npm alias, not the package name"
 });
 
 test("isKeepExpired - returns false when dep is missing from rootDeps", () => {
-  const item: AppendixItem = {
-    ledger: ledger6,
-  };
+  const item: AppendixItem = { ledger: ledger6 };
   assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 const lodashEntry12LedgerKeep = { reason: "awaiting upstream fix" };
-const lodashEntry12Ledger = {
-  addedDate: "2024-01-01",
-  keep: lodashEntry12LedgerKeep,
-};
-const lodashEntry12 = {
-  dependents: lodashEntry5Dependents,
-  ledger: lodashEntry12Ledger,
-};
+const lodashEntry12Ledger = { addedDate: "2024-01-01", keep: lodashEntry12LedgerKeep };
+const lodashEntry12 = { dependents: lodashEntry5Dependents, ledger: lodashEntry12Ledger };
 test("findUnusedAppendixEntries - skips entries with KeepConstraint object", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry12,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry12 };
 
   const result = findUnusedAppendixEntries(appendix);
   assert.ok(!result.includes("lodash@4.17.21"));
 });
 
 const lodashEntry13LedgerKeep = { reason: "expired keep", until: "2020-01-01" };
-const lodashEntry13Ledger = {
-  addedDate: "2024-01-01",
-  keep: lodashEntry13LedgerKeep,
-};
-const lodashEntry13 = {
-  dependents: lodashEntry5Dependents,
-  ledger: lodashEntry13Ledger,
-};
+const lodashEntry13Ledger = { addedDate: "2024-01-01", keep: lodashEntry13LedgerKeep };
+const lodashEntry13 = { dependents: lodashEntry5Dependents, ledger: lodashEntry13Ledger };
 test("findUnusedAppendixEntries - includes expired KeepConstraint entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry13,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry13 };
 
   const result = findUnusedAppendixEntries(appendix);
   assert.ok(result.includes("lodash@4.17.21"));
 });
 
 const lodashEntry14LedgerKeep = { reason: "version-bounded keep", untilVersion: "4.18.0" };
-const lodashEntry14Ledger = {
-  addedDate: "2024-01-01",
-  keep: lodashEntry14LedgerKeep,
-};
-const lodashEntry14 = {
-  dependents: lodashEntry5Dependents,
-  ledger: lodashEntry14Ledger,
-};
+const lodashEntry14Ledger = { addedDate: "2024-01-01", keep: lodashEntry14LedgerKeep };
+const lodashEntry14 = { dependents: lodashEntry5Dependents, ledger: lodashEntry14Ledger };
 test("findUnusedAppendixEntries - includes version-expired KeepConstraint entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry14,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry14 };
 
   const result = findUnusedAppendixEntries(appendix, { lodash: "^4.18.0" });
   assert.ok(result.includes("lodash@4.17.21"));
 });
 
 const lodashEntry15LedgerKeep = { reason: "awaiting upstream fix", untilVersion: "4.18.0" };
-const lodashEntry15Ledger = {
-  addedDate: "2024-01-01",
-  keep: lodashEntry15LedgerKeep,
-};
-const lodashEntry15 = {
-  dependents: lodashEntry11Dependents,
-  ledger: lodashEntry15Ledger,
-};
+const lodashEntry15Ledger = { addedDate: "2024-01-01", keep: lodashEntry15LedgerKeep };
+const lodashEntry15 = { dependents: lodashEntry11Dependents, ledger: lodashEntry15Ledger };
 test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": lodashEntry15,
-  };
+  const appendix: Appendix = { "lodash@4.17.21": lodashEntry15 };
 
   const result = toCompactAppendix(appendix);
   assertHasProperty(result["lodash@4.17.21"], "ledger");
@@ -869,9 +689,7 @@ test("parseOverridePackageName - resolves pnpm selector and nested override keys
 
 const minimatch = ["glob", "rimraf"];
 test("buildDependentInfo - keeps range selectors without claiming version-specific consumers", () => {
-  const info = buildDependentInfo(false, "minimatch@>=9 <10", undefined, undefined, {
-    minimatch,
-  });
+  const info = buildDependentInfo(false, "minimatch@>=9 <10", undefined, undefined, { minimatch });
   assert.strictEqual(info, "minimatch@>=9 <10 (transitive dependency)");
 });
 
@@ -944,17 +762,13 @@ test("hasDependenciesMatchingOverrides - returns false when dep is genuinely abs
 });
 
 test("isKeepExpired - returns false when dep version has no semver", () => {
-  const item: AppendixItem = {
-    ledger: ledger6,
-  };
+  const item: AppendixItem = { ledger: ledger6 };
   assert.strictEqual(isKeepExpired(item, "lodash", { lodash: "workspace:*" }), false);
   assert.strictEqual(isKeepExpired(item, "lodash", { lodash: "latest" }), false);
 });
 
 test("isKeepExpired - extracts semver from range specifiers", () => {
-  const item: AppendixItem = {
-    ledger: ledger6,
-  };
+  const item: AppendixItem = { ledger: ledger6 };
   assert.strictEqual(isKeepExpired(item, "lodash", { lodash: ">=4.18.1 <5" }), true);
   assert.strictEqual(isKeepExpired(item, "lodash", { lodash: "npm:lodash@4.17.0" }), false);
 });
@@ -1178,7 +992,11 @@ const NEW_DATE = "2026-10-01T00:00:00.000Z";
 const UNDICI_DEPENDENTS = { codependence: "undici (required by release-it)" };
 const POSTCSS_DEPENDENTS = { codependence: "postcss (required by shadcn, vite)" };
 
-const entry = (key: string, dependents: Record<string, string>, addedDate: string): Appendix => {
+const createDatedEntry = (
+  key: string,
+  dependents: Record<string, string>,
+  addedDate: string,
+): Appendix => {
   const ledger = { addedDate };
   const item: AppendixItem = { dependents, ledger };
   const appendix: Appendix = Object.fromEntries([[key, item]]);
@@ -1186,25 +1004,25 @@ const entry = (key: string, dependents: Record<string, string>, addedDate: strin
 };
 
 test("carryExistingLedgers - drops keys no current override produces", () => {
-  const fresh = entry("undici@7.30.0", UNDICI_DEPENDENTS, NEW_DATE);
-  const stale = entry("undici@7.28.0", UNDICI_DEPENDENTS, OLD_DATE);
-  const stale2 = entry("undici@7.29.0", UNDICI_DEPENDENTS, OLD_DATE);
-  const live = entry("undici@7.30.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const fresh = createDatedEntry("undici@7.30.0", UNDICI_DEPENDENTS, NEW_DATE);
+  const stale = createDatedEntry("undici@7.28.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const stale2 = createDatedEntry("undici@7.29.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const live = createDatedEntry("undici@7.30.0", UNDICI_DEPENDENTS, OLD_DATE);
   const existing = Object.assign({}, stale, stale2, live);
   const result = carryExistingLedgers(fresh, existing);
   assert.deepEqual(Object.keys(result), ["undici@7.30.0"]);
 });
 
 test("carryExistingLedgers - unchanged key keeps its original addedDate", () => {
-  const fresh = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
-  const existing = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, OLD_DATE);
+  const fresh = createDatedEntry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
+  const existing = createDatedEntry("postcss@8.5.23", POSTCSS_DEPENDENTS, OLD_DATE);
   const result = carryExistingLedgers(fresh, existing);
   assert.equal(result["postcss@8.5.23"].ledger?.addedDate, OLD_DATE);
 });
 
 test("carryExistingLedgers - new version key gets the fresh addedDate", () => {
-  const fresh = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
-  const existing = entry("postcss@8.5.18", POSTCSS_DEPENDENTS, OLD_DATE);
+  const fresh = createDatedEntry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
+  const existing = createDatedEntry("postcss@8.5.18", POSTCSS_DEPENDENTS, OLD_DATE);
   const result = carryExistingLedgers(fresh, existing);
   assert.equal(result["postcss@8.5.23"].ledger?.addedDate, NEW_DATE);
   assert.equal(result["postcss@8.5.18"], undefined);
@@ -1213,14 +1031,14 @@ test("carryExistingLedgers - new version key gets the fresh addedDate", () => {
 test("carryExistingLedgers - replaces stale dependents with current ones", () => {
   const current = { docs: "vite@^8.2.1" };
   const stale = { codependence: "vite (unused override)", docs: "old" };
-  const fresh = entry("vite@8.2.1", current, NEW_DATE);
-  const existing = entry("vite@8.2.1", stale, OLD_DATE);
+  const fresh = createDatedEntry("vite@8.2.1", current, NEW_DATE);
+  const existing = createDatedEntry("vite@8.2.1", stale, OLD_DATE);
   const result = carryExistingLedgers(fresh, existing);
   assert.deepEqual(result["vite@8.2.1"].dependents, current);
 });
 
 test("carryExistingLedgers - keeps entries marked keep even without an override", () => {
-  const existing = entry("lodash@4.17.20", {}, OLD_DATE);
+  const existing = createDatedEntry("lodash@4.17.20", {}, OLD_DATE);
   const ledger = { addedDate: OLD_DATE, keep: true };
   const kept = Object.assign({}, existing["lodash@4.17.20"], { ledger });
   const keptAppendix = Object.fromEntries([["lodash@4.17.20", kept]]);

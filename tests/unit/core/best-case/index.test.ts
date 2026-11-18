@@ -9,6 +9,7 @@ import {
   buildBestCaseChoices,
   resolveBestCasePolicy,
   type BestCaseEvaluation,
+  type BestCasePackageChoice,
   type BestCaseState,
 } from "../../../../src/core/best-case";
 import type { EvaluationContext } from "../../../../src/core/best-case/types";
@@ -19,16 +20,20 @@ const alert = (
   packageName: string,
   severity: SecurityAlert["severity"],
   cve: string,
-): SecurityAlert => ({
-  packageName,
-  currentVersion: "1.0.0",
-  vulnerableVersions: "<2.0.0",
-  severity,
-  title: cve,
-  cves: [cve],
-  fixAvailable: true,
-  patchedVersion: "2.0.0",
-});
+): SecurityAlert => {
+  const cves = [cve];
+  const result = {
+    packageName,
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    severity,
+    title: cve,
+    cves,
+    fixAvailable: true,
+    patchedVersion: "2.0.0",
+  };
+  return result;
+};
 
 const evaluation = (alerts: SecurityAlert[]): BestCaseEvaluation => ({ alerts });
 
@@ -38,135 +43,183 @@ test("best-case rescans preserve canonical registry identities for aliases", () 
   assert.deepStrictEqual(result, [{ name: "alias", version: "1.0.1", registryName: "actual" }]);
 });
 
+const evaluatePatchedAlpha = (state: BestCaseState): BestCaseEvaluation => {
+  const result = evaluation([alert("alpha", "high", "CVE-ALPHA")]);
+  if (state.alpha === "1.0.0") return result;
+  const result2 = evaluation([]);
+  return result2;
+};
+
+const evaluateGlobalPortfolio = (state: BestCaseState): BestCaseEvaluation => {
+  const key = `${state.alpha}:${state.beta}`;
+  const result = evaluation([alert("beta", "high", "CVE-BETA")]);
+  if (key === "2.0.0:1.0.0") return result;
+  const result2 = evaluation([alert("alpha", "critical", "CVE-ALPHA")]);
+  if (key === "1.0.0:2.0.0") return result2;
+  const result3 = evaluation([alert("gamma", "critical", "CVE-MIX")]);
+  if (key === "2.0.0:2.0.0") return result3;
+  const result4 = evaluation([
+    alert("alpha", "critical", "CVE-ALPHA"),
+    alert("beta", "high", "CVE-BETA"),
+  ]);
+  return result4;
+};
+
+const evaluateRemainingPackages = (state: BestCaseState): BestCaseEvaluation => {
+  const remaining = Object.entries(state)
+    .filter(([, version]) => version === "1.0.0")
+    .map(([name]) => alert(name, "high", `CVE-${name}`));
+  const result = evaluation(remaining);
+  return result;
+};
+
+const evaluateResolutionFailure = (state: BestCaseState): BestCaseEvaluation => {
+  if (state.alpha === "2.0.0") throw new Error("resolution failed");
+  const result = evaluation([alert("alpha", "high", "CVE-ALPHA")]);
+  return result;
+};
+
+const rejectProviderEvaluation = () => {
+  throw new Error("provider unavailable");
+};
+
+const evaluateLedgerPortfolio = (state: BestCaseState): BestCaseEvaluation => {
+  const result = evaluation([]);
+  if (state.alpha === "2.0.0") return result;
+  const result2 = evaluation([alert("alpha", "high", "CVE-ALPHA")]);
+  return result2;
+};
+
+const evaluateOwnedVersions = (): BestCaseEvaluation => evaluation([]);
+
+const selectLowestPatchedVersion = async () => {
+  const versions = ["1.10.0", "1.2.0"];
+  const choices = [{ packageName: "alpha", currentVersion: "1.0.0", versions }];
+
+  const result = await optimizeBestCasePortfolio({ choices, evaluate: evaluatePatchedAlpha });
+  assert.equal(result.selectedState.alpha, "1.2.0");
+};
+
+const findGlobalPortfolio = async () => {
+  const versions = ["1.0.0", "2.0.0"];
+  const versions2 = ["1.0.0", "2.0.0"];
+  const choices = [
+    { packageName: "alpha", currentVersion: "1.0.0", versions },
+    { packageName: "beta", currentVersion: "1.0.0", versions: versions2 },
+  ];
+
+  const result = await optimizeBestCasePortfolio({ choices, evaluate: evaluateGlobalPortfolio });
+
+  assert.deepStrictEqual(result.selectedState, { alpha: "2.0.0", beta: "1.0.0" });
+  assert.strictEqual(result.search.evaluatedStates, 4);
+  assert.strictEqual(result.search.provenOptimal, true);
+  assert.strictEqual(result.search.mode, "exact");
+  assert.deepStrictEqual(result.impact, {
+    fixedVulnerabilities: 1,
+    introducedVulnerabilities: 0,
+    remainingVulnerabilities: 1,
+  });
+};
+
+const createBeamChoice = (_value: unknown, index: number) => {
+  const packageName = `pkg-${index}`;
+  const versions = ["1.0.0", "2.0.0"];
+  const choice = { packageName, currentVersion: "1.0.0", versions };
+  return choice;
+};
+
+const useBoundedBeamSearch = async () => {
+  const choices = Array.from({ length: 8 }, createBeamChoice);
+
+  const mode = "auto" as const;
+  const search = { mode, exactStateLimit: 32, beamWidth: 2, maxEvaluations: 20 };
+  const config = { search };
+
+  const options = {
+    choices,
+    evaluate: evaluateRemainingPackages,
+    config,
+  };
+  const first = await optimizeBestCasePortfolio(options);
+  const second = await optimizeBestCasePortfolio(options);
+
+  assert.deepStrictEqual(first.selectedState, second.selectedState);
+  assert.strictEqual(first.search.mode, "beam");
+  assert.strictEqual(first.search.provenOptimal, false);
+  assert.ok(first.search.evaluatedStates <= 20);
+};
+
+const continueAfterEvaluationFailure = async () => {
+  const versions = ["1.0.0", "2.0.0"];
+  const choices = [{ packageName: "alpha", currentVersion: "1.0.0", versions }];
+
+  const result = await optimizeBestCasePortfolio({ choices, evaluate: evaluateResolutionFailure });
+
+  assert.strictEqual(result.selectedState.alpha, "1.0.0");
+  assert.strictEqual(result.failedStates, 1);
+  assert.strictEqual(result.search.provenOptimal, false);
+};
+
+const rejectFailedPortfolios = async () => {
+  const versions = ["1.0.0", "2.0.0"];
+  const choices = [{ packageName: "alpha", currentVersion: "1.0.0", versions }];
+
+  const result = optimizeBestCasePortfolio({ choices, evaluate: rejectProviderEvaluation });
+
+  await assert.rejects(result, errorIncludes("no portfolio states were evaluated successfully"));
+};
+
+const limitExactSearch = async () => {
+  const versions = ["1.0.0", "2.0.0"];
+  const choices = [{ packageName: "alpha", currentVersion: "1.0.0", versions }];
+  const mode = "exact" as const;
+  const search = { mode, maxEvaluations: 1 };
+  const config = { search };
+
+  const result = await optimizeBestCasePortfolio({
+    choices,
+    evaluate: () => evaluation([]),
+    config,
+  });
+
+  assert.strictEqual(result.search.evaluatedStates, 1);
+  assert.strictEqual(result.search.provenOptimal, false);
+};
+
+const linkPortfolioLedger = async () => {
+  const versions = ["1.0.0", "2.0.0"];
+  const choices = [{ packageName: "alpha", currentVersion: "1.0.0", versions }];
+
+  const result = await optimizeBestCasePortfolio({ choices, evaluate: evaluateLedgerPortfolio });
+
+  const reason = createBestCaseReason(result);
+
+  assert.strictEqual(reason.type, "best-case");
+  assert.strictEqual(reason.decisionId, result.decisionId);
+  assert.deepStrictEqual(reason.search, { evaluatedStates: 2, provenOptimal: true });
+  assert.strictEqual(reason.impact.fixedVulnerabilities, 1);
+};
+
 describe("optimizeBestCasePortfolio", () => {
-  test("selects the lowest version when patched portfolios are equally safe", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.10.0", "1.2.0"] },
-    ];
-    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
-      if (state.alpha === "1.0.0") return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
-      return evaluation([]);
-    };
-    const result = await optimizeBestCasePortfolio({ choices, evaluate });
-    assert.equal(result.selectedState.alpha, "1.2.0");
-  });
+  test(
+    "selects the lowest version when patched portfolios are equally safe",
+    selectLowestPatchedVersion,
+  );
 
-  test("finds the global portfolio instead of selecting every package fix", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-      { packageName: "beta", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-    ];
-    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
-      const key = `${state.alpha}:${state.beta}`;
-      if (key === "2.0.0:1.0.0") return evaluation([alert("beta", "high", "CVE-BETA")]);
-      if (key === "1.0.0:2.0.0") return evaluation([alert("alpha", "critical", "CVE-ALPHA")]);
-      if (key === "2.0.0:2.0.0") return evaluation([alert("gamma", "critical", "CVE-MIX")]);
-      return evaluation([
-        alert("alpha", "critical", "CVE-ALPHA"),
-        alert("beta", "high", "CVE-BETA"),
-      ]);
-    };
+  test("finds the global portfolio instead of selecting every package fix", findGlobalPortfolio);
 
-    const result = await optimizeBestCasePortfolio({ choices, evaluate });
+  test("uses deterministic bounded beam search above the exact-state cap", useBoundedBeamSearch);
 
-    assert.deepStrictEqual(result.selectedState, { alpha: "2.0.0", beta: "1.0.0" });
-    assert.strictEqual(result.search.evaluatedStates, 4);
-    assert.strictEqual(result.search.provenOptimal, true);
-    assert.strictEqual(result.search.mode, "exact");
-    assert.deepStrictEqual(result.impact, {
-      fixedVulnerabilities: 1,
-      introducedVulnerabilities: 0,
-      remainingVulnerabilities: 1,
-    });
-  });
+  test("treats evaluator failures as invalid states and continues", continueAfterEvaluationFailure);
 
-  test("uses deterministic bounded beam search above the exact-state cap", async () => {
-    const choices = Array.from({ length: 8 }, (_, index) => ({
-      packageName: `pkg-${index}`,
-      currentVersion: "1.0.0",
-      versions: ["1.0.0", "2.0.0"],
-    }));
-    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
-      const remaining = Object.entries(state)
-        .filter(([, version]) => version === "1.0.0")
-        .map(([name]) => alert(name, "high", `CVE-${name}`));
-      return evaluation(remaining);
-    };
-    const config = {
-      search: { mode: "auto" as const, exactStateLimit: 32, beamWidth: 2, maxEvaluations: 20 },
-    };
+  test("rejects when every portfolio evaluation fails", rejectFailedPortfolios);
 
-    const first = await optimizeBestCasePortfolio({ choices, evaluate, config });
-    const second = await optimizeBestCasePortfolio({ choices, evaluate, config });
+  test("withholds optimality when exact search reaches its evaluation cap", limitExactSearch);
 
-    assert.deepStrictEqual(first.selectedState, second.selectedState);
-    assert.strictEqual(first.search.mode, "beam");
-    assert.strictEqual(first.search.provenOptimal, false);
-    assert.ok(first.search.evaluatedStates <= 20);
-  });
-
-  test("treats evaluator failures as invalid states and continues", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-    ];
-    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
-      if (state.alpha === "2.0.0") throw new Error("resolution failed");
-      return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
-    };
-
-    const result = await optimizeBestCasePortfolio({ choices, evaluate });
-
-    assert.strictEqual(result.selectedState.alpha, "1.0.0");
-    assert.strictEqual(result.failedStates, 1);
-    assert.strictEqual(result.search.provenOptimal, false);
-  });
-
-  test("rejects when every portfolio evaluation fails", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-    ];
-    const evaluate = () => {
-      throw new Error("provider unavailable");
-    };
-
-    const result = optimizeBestCasePortfolio({ choices, evaluate });
-
-    await assert.rejects(result, errorIncludes("no portfolio states were evaluated successfully"));
-  });
-
-  test("withholds optimality when exact search reaches its evaluation cap", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-    ];
-    const config = { search: { mode: "exact" as const, maxEvaluations: 1 } };
-
-    const result = await optimizeBestCasePortfolio({
-      choices,
-      evaluate: () => evaluation([]),
-      config,
-    });
-
-    assert.strictEqual(result.search.evaluatedStates, 1);
-    assert.strictEqual(result.search.provenOptimal, false);
-  });
-
-  test("creates a per-dependency ledger reason linked to the portfolio decision", async () => {
-    const choices = [
-      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
-    ];
-    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
-      if (state.alpha === "2.0.0") return evaluation([]);
-      return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
-    };
-    const result = await optimizeBestCasePortfolio({ choices, evaluate });
-
-    const reason = createBestCaseReason(result);
-
-    assert.strictEqual(reason.type, "best-case");
-    assert.strictEqual(reason.decisionId, result.decisionId);
-    assert.deepStrictEqual(reason.search, { evaluatedStates: 2, provenOptimal: true });
-    assert.strictEqual(reason.impact.fixedVulnerabilities, 1);
-  });
+  test(
+    "creates a per-dependency ledger reason linked to the portfolio decision",
+    linkPortfolioLedger,
+  );
 });
 
 test("buildBestCaseChoices normalizes dependency ranges before selecting the baseline", () => {
@@ -185,12 +238,14 @@ test("optimizeSecurityOverrides hard-constrains user-owned versions", async () =
     alert("alpha", "high", "CVE-OWNED"),
     alert("alpha", "critical", "CVE-OWNED-CRITICAL"),
   ];
-  const evaluate = (): BestCaseEvaluation => evaluation([]);
+
+  const latestVersions = new Map([["alpha", "3.0.0"]]);
+  const userOwnedVersions = new Map([["alpha", "2.5.0"]]);
   const result = await optimizeSecurityOverrides({
     vulnerablePackages,
-    latestVersions: new Map([["alpha", "3.0.0"]]),
-    userOwnedVersions: new Map([["alpha", "2.5.0"]]),
-    evaluate,
+    latestVersions,
+    userOwnedVersions,
+    evaluate: evaluateOwnedVersions,
   });
 
   assert.deepStrictEqual(result.bestCase.selectedState, { alpha: "2.5.0" });
@@ -199,12 +254,15 @@ test("optimizeSecurityOverrides hard-constrains user-owned versions", async () =
 });
 
 test("evaluateStates omits states beyond the evaluation limit", async () => {
+  const cache = new Map();
+  const choices: BestCasePackageChoice[] = [];
+  const policy = resolveBestCasePolicy();
   const context: EvaluationContext = {
-    cache: new Map(),
-    choices: [],
+    cache,
+    choices,
     evaluate: () => evaluation([]),
     maxEvaluations: 0,
-    policy: resolveBestCasePolicy(),
+    policy,
   };
 
   assert.deepStrictEqual(await evaluateStates([{ alpha: "1.0.0" }], context), []);

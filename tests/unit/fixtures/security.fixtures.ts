@@ -1,5 +1,4 @@
 import type { SecurityAlert } from "../../../src/core/security/types";
-
 export const BASE_SECURITY_ALERT = {
   packageName: "lodash",
   currentVersion: "4.17.20",
@@ -9,11 +8,9 @@ export const BASE_SECURITY_ALERT = {
   title: "Prototype Pollution",
   fixAvailable: true,
 } as const;
-
 export const LODASH_CVE = "CVE-2021-23337";
 export const LODASH_URL = "https://nvd.nist.gov/vuln/detail/CVE-2021-23337";
 export const LODASH_DESCRIPTION = "Lodash versions before 4.17.21 are vulnerable";
-
 export const AXIOS_ALERT_FIELDS = {
   packageName: "axios",
   currentVersion: "0.21.0",
@@ -21,50 +18,49 @@ export const AXIOS_ALERT_FIELDS = {
   patchedVersion: "0.21.2",
   title: "SSRF vulnerability",
 } as const;
-
 export const NO_FIX_FIELDS = {
   patchedVersion: undefined,
   fixAvailable: false,
   title: "No fix available",
 } as const;
-
+const state = "open" as const;
 export const BASE_DEPENDABOT_ALERT = {
   number: 1,
-  state: "open" as const,
+  state: state,
   url: "https://api.github.com/repos/owner/repo/dependabot/alerts/1",
   html_url: "https://github.com/owner/repo/security/dependabot/1",
   created_at: "2021-02-01T00:00:00Z",
   updated_at: "2021-02-01T00:00:00Z",
 } as const;
-
+const packageInfo = { ecosystem: "npm", name: "lodash" };
+const scope = "runtime" as const;
 export const LODASH_DEPENDENCY = {
-  package: { ecosystem: "npm", name: "lodash" },
+  package: packageInfo,
   manifest_path: "package.json",
-  scope: "runtime" as const,
+  scope: scope,
 } as const;
-
+const packageInfo2 = { ecosystem: "npm", name: "lodash" };
+const first_patched_version = { identifier: "4.17.21" };
 export const LODASH_VULNERABILITY = {
-  package: { ecosystem: "npm", name: "lodash" },
+  package: packageInfo2,
   vulnerable_version_range: "< 4.17.21",
-  first_patched_version: { identifier: "4.17.21" },
+  first_patched_version: first_patched_version,
 } as const;
-
 export const LODASH_ADVISORY = {
   severity: "high",
   summary: "Prototype Pollution in lodash",
   description: "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
   cve_id: LODASH_CVE,
 } as const;
-
+const severity = "high" as const;
 export const BASE_SECURITY_OVERRIDE = {
   packageName: "lodash",
   fromVersion: "4.17.20",
   toVersion: "4.17.21",
   reason: "Security fix",
-  severity: "high" as const,
+  severity: severity,
 } as const;
-
-export const createAlert = (overrides = {}): SecurityAlert => ({
-  ...BASE_SECURITY_ALERT,
-  ...overrides,
-});
+export const createAlert = (overrides = {}): SecurityAlert => {
+  const alert = Object.assign({}, BASE_SECURITY_ALERT, overrides);
+  return alert;
+};

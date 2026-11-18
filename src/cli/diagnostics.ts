@@ -8,6 +8,8 @@ import type { CliGraph, UpdateContext } from "./types";
 const describeReason = (reason: DependencyDiagnostic["reason"]): string => {
   if (reason === "missing-lockfile") return "Lockfile not found";
   if (reason === "unreadable-lockfile") return "Lockfile could not be read";
+  if (reason === "unverified-lockfile")
+    return "Lockfile snapshot has not been verified by native resolution";
   if (reason === "invalid-or-unsupported-lockfile") return "Lockfile is invalid or unsupported";
   if (reason === "unreadable-manifest") return "Workspace manifest could not be read or parsed";
   if (reason === "missing-manifest-root")

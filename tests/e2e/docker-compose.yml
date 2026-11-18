@@ -1,4 +1,9 @@
 services:
+  e2e-python:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.python
+
   e2e-js-mgrs:
     build:
       context: ../..

@@ -289,10 +289,10 @@ const registerArrayFlagsTests = () => {
 };
 
 const registerDefaultValuesTests = () => {
-  test("should apply default value for path", () => {
+  test("leaves the path unset for project discovery", () => {
     const result = parseArgs(["node", "script.js"]);
 
-    assert.strictEqual(result.options.path, "package.json");
+    assert.strictEqual(result.options.path, undefined);
   });
 
   test("should not apply default value for securityProvider when not provided", () => {
@@ -453,7 +453,7 @@ const registerEdgeCasesTestsPart1 = () => {
     const result = parseArgs(["node", "script.js"]);
 
     assert.strictEqual(result.command, undefined);
-    assert.strictEqual(result.options.path, "package.json");
+    assert.strictEqual(result.options.path, undefined);
     assert.strictEqual(result.options.securityProvider, undefined);
   });
 
@@ -461,7 +461,7 @@ const registerEdgeCasesTestsPart1 = () => {
     const result = parseArgs(["node", "script.js", "init"]);
 
     assert.strictEqual(result.command, "init");
-    assert.strictEqual(result.options.path, "package.json");
+    assert.strictEqual(result.options.path, undefined);
   });
 
   test("should reject a separate empty string value", () => {

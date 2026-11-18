@@ -19,37 +19,52 @@ import { readFileSync, unlinkSync, writeFileSync } from "fs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { tmpdir } from "os";
-import { join } from "path";
+import { basename, join } from "path";
 import {
   constructAppendix,
   findRemovableAppendixItems,
   processAndWritePackageJSON,
   updateAppendix,
 } from "../../../../src/core/appendix";
-import type { Appendix, OverridesType, ResolveOverrides } from "../../../../src/types";
+import type {
+  Appendix,
+  OverridesType,
+  ResolveOverrides,
+  SecurityOverrideDetail,
+} from "../../../../src/types";
+
+const writePackageFixture = (path: string, config: Record<string, unknown>): void => {
+  writeFileSync(path, JSON.stringify(config));
+};
+
+const writeWorkspaceFixture = (
+  directory: string,
+  dependencies: Record<string, string>,
+  overrides?: OverridesType,
+): string => {
+  mkdirSync(directory, { recursive: true });
+  const name = basename(directory);
+  const config = { name, version: "1.0.0", dependencies, overrides };
+  const path = resolve(directory, "package.json");
+  writePackageFixture(path, config);
+  return path;
+};
 
 test("updateAppendix - simple override", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
   const appendix: Appendix = {};
-  const result = updateAppendix({
-    overrides,
-    appendix,
-    dependencies: { lodash: "^4.17.21" },
-    packageName: "root",
-  });
+  const dependencies = { lodash: "^4.17.21" };
+  const result = updateAppendix({ overrides, appendix, dependencies, packageName: "root" });
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("updateAppendix - nested override", () => {
-  const overrides: OverridesType = { react: { "react-dom": "18.0.0" } };
+  const react = { "react-dom": "18.0.0" };
+  const overrides: OverridesType = { react };
   const appendix: Appendix = {};
-  const result = updateAppendix({
-    overrides,
-    appendix,
-    dependencies: { react: "^18.0.0" },
-    packageName: "root",
-  });
+  const dependencies = { react: "^18.0.0" };
+  const result = updateAppendix({ overrides, appendix, dependencies, packageName: "root" });
 
   assert.notStrictEqual(result["react-dom@18.0.0"], undefined);
 });
@@ -57,12 +72,8 @@ test("updateAppendix - nested override", () => {
 test("updateAppendix - devDependencies", () => {
   const overrides: OverridesType = { jest: "29.0.0" };
   const appendix: Appendix = {};
-  const result = updateAppendix({
-    overrides,
-    appendix,
-    devDependencies: { jest: "^29.0.0" },
-    packageName: "root",
-  });
+  const devDependencies = { jest: "^29.0.0" };
+  const result = updateAppendix({ overrides, appendix, devDependencies, packageName: "root" });
 
   assert.notStrictEqual(result["jest@29.0.0"], undefined);
 });
@@ -70,9 +81,10 @@ test("updateAppendix - devDependencies", () => {
 test("constructAppendix", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
+  const npm = { lodash: "4.17.21" };
   const result = await constructAppendix(
     ["pkg/package.json"],
-    { npm: { lodash: "4.17.21" } } as ResolveOverrides,
+    { npm } as ResolveOverrides,
     mockLog,
   );
 
@@ -80,26 +92,32 @@ test("constructAppendix", async () => {
 });
 
 test("findRemovableAppendixItems - extracts plain package names correctly", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: {} },
-  };
+  const dependents = {};
+  const lodash41721 = { dependents };
+  const appendix: Appendix = { "lodash@4.17.21": lodash41721 };
   const result = findRemovableAppendixItems(appendix);
   assert.deepStrictEqual(result, ["lodash"]);
 });
 
 test("findRemovableAppendixItems - extracts scoped package names correctly", () => {
-  const appendix: Appendix = {
-    "@scope/pkg@1.2.3": { dependents: {} },
-  };
+  const dependents = {};
+  const scopePkg123 = { dependents };
+  const appendix: Appendix = { "@scope/pkg@1.2.3": scopePkg123 };
   const result = findRemovableAppendixItems(appendix);
   assert.deepStrictEqual(result, ["@scope/pkg"]);
 });
 
 test("findRemovableAppendixItems - handles mixed scoped and plain packages", () => {
+  const dependents = {};
+  const lodash41721 = { dependents };
+  const dependents2 = {};
+  const scopePkg200 = { dependents: dependents2 };
+  const dependents3 = { root: "1.0.0" };
+  const express4180 = { dependents: dependents3 };
   const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: {} },
-    "@scope/pkg@2.0.0": { dependents: {} },
-    "express@4.18.0": { dependents: { root: "1.0.0" } },
+    "lodash@4.17.21": lodash41721,
+    "@scope/pkg@2.0.0": scopePkg200,
+    "express@4.18.0": express4180,
   };
   const result = findRemovableAppendixItems(appendix);
   assert.deepStrictEqual(result, ["lodash", "@scope/pkg"]);
@@ -107,14 +125,18 @@ test("findRemovableAppendixItems - handles mixed scoped and plain packages", () 
 
 test("updateAppendix - does not skip transitive override when onlyUsedOverrides=true", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
+  const appendix = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const dependencyTree = { lodash: true };
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: {},
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyTree: { lodash: true },
+    dependencyTree,
   });
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
@@ -141,42 +163,55 @@ test("updateAppendix - skips tree-only override when graph has no matching path"
 
 test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=true", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
+  const appendix = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const dependencyTree = {};
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: {},
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyTree: {},
+    dependencyTree,
   });
   assert.strictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("updateAppendix - keeps selector-range override when package is in dependency tree (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "minimatch@>=9 <10": "9.0.9" };
+  const appendix = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const dependencyTree = { minimatch: true };
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: {},
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyTree: { minimatch: true },
+    dependencyTree,
   });
   assert.notStrictEqual(result["minimatch@>=9 <10@9.0.9"], undefined);
 });
 
 test("updateAppendix - keeps selector-range override when required by a dependency (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const appendix = {};
+  const dependencies = { glob: "^7.0.0" };
+  const devDependencies = {};
+  const minimatch = ["glob"];
+  const dependencyGraph = { minimatch };
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: { glob: "^7.0.0" },
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyGraph: { minimatch: ["glob"] },
+    dependencyGraph,
   });
   assert.notStrictEqual(result["minimatch@<4@3.1.5"], undefined);
 });
@@ -185,13 +220,12 @@ test("updateAppendix - replaces inaccurate selector consumers and preserves its 
   const key = "undici@7.29.0@7.29.1";
   const ledger = { addedDate: "2026-09-30T05:27:17.253Z", reason: "Patch release-it's pin" };
   const dependents = { m2rd: "undici@7.29.0 (required by jsdom, release-it)" };
-  const appendix = { [key]: { dependents, ledger } };
-  const options = {
-    overrides: { "undici@7.29.0": "7.29.1" },
-    appendix,
-    packageName: "m2rd",
-    dependencyGraph: { undici: ["jsdom", "release-it"] },
-  };
+  const key2 = { dependents, ledger };
+  const appendix = { [key]: key2 };
+  const overrides = { "undici@7.29.0": "7.29.1" };
+  const undici = ["jsdom", "release-it"];
+  const dependencyGraph = { undici };
+  const options = { overrides, appendix, packageName: "m2rd", dependencyGraph };
   const result = updateAppendix(options);
   assert.strictEqual(result[key].dependents?.m2rd, "undici@7.29.0 (transitive dependency)");
   assert.deepStrictEqual(result[key].ledger, ledger);
@@ -201,124 +235,116 @@ test("updateAppendix - replaces inaccurate selector consumers and preserves its 
 
 test("updateAppendix - keeps nested parent>child override when child is in dependency tree (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "gray-matter>js-yaml": "3.14.2" };
+  const appendix = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const dependencyTree = { "js-yaml": true };
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: {},
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyTree: { "js-yaml": true },
+    dependencyTree,
   });
   assert.notStrictEqual(result["gray-matter>js-yaml@3.14.2"], undefined);
 });
 
 test("updateAppendix - still removes selector-range override when package is genuinely absent (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "minimatch@>=9 <10": "9.0.9" };
+  const appendix = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const dependencyTree = {};
   const result = updateAppendix({
     overrides,
-    appendix: {},
-    dependencies: {},
-    devDependencies: {},
+    appendix,
+    dependencies,
+    devDependencies,
     packageName: "root",
     onlyUsedOverrides: true,
-    dependencyTree: {},
+    dependencyTree,
   });
   assert.strictEqual(result["minimatch@>=9 <10@9.0.9"], undefined);
 });
 
 test("updateAppendix - does not mutate original appendix", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
-  const originalAppendix: Appendix = {
-    "express@4.18.2": {
-      dependents: { root: "express@^4.18.0" },
-    },
-  };
+  const dependents = { root: "express@^4.18.0" };
+  const express4182 = { dependents };
+  const originalAppendix: Appendix = { "express@4.18.2": express4182 };
 
   const appendixCopy = JSON.parse(JSON.stringify(originalAppendix));
 
-  updateAppendix({
-    overrides,
-    appendix: originalAppendix,
-    dependencies: { lodash: "^4.17.21" },
-    packageName: "root",
-  });
+  const dependencies = { lodash: "^4.17.21" };
+  updateAppendix({ overrides, appendix: originalAppendix, dependencies, packageName: "root" });
 
   assert.deepStrictEqual(originalAppendix, appendixCopy);
 });
 
-test("updateAppendix - does not mutate original appendix on cache hit", () => {
+const createCachedLodashFixture = () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
   const cache = new Map();
 
-  const firstResult = updateAppendix({
-    overrides,
-    appendix: {},
-    dependencies: { lodash: "^4.17.21" },
-    packageName: "root",
-    cache,
-  });
+  const appendix = {};
+  const dependencies = { lodash: "^4.17.21" };
+  const fixture = { overrides, cache, appendix, dependencies };
+  return fixture;
+};
 
+test("updateAppendix - does not mutate original appendix on cache hit", () => {
+  const options = Object.assign(createCachedLodashFixture(), { packageName: "root" });
+  const firstResult = updateAppendix(options);
   const snapshot = JSON.parse(JSON.stringify(firstResult));
-
-  updateAppendix({
-    overrides,
-    appendix: firstResult,
-    dependencies: { lodash: "^4.17.21" },
-    packageName: "root",
-    cache,
-  });
-
+  const dependencies = { lodash: "^4.17.21" };
+  const repeatedOptions = Object.assign({}, options, { appendix: firstResult, dependencies });
+  updateAppendix(repeatedOptions);
   assert.deepStrictEqual(firstResult, snapshot);
 });
 
-test("updateAppendix - does not mutate original appendix with nested overrides on cache hit", () => {
-  const overrides: OverridesType = { react: { "react-dom": "18.0.0" } };
+const createCachedReactFixture = () => {
+  const react = { "react-dom": "18.0.0" };
+  const overrides: OverridesType = { react };
   const cache = new Map();
 
-  const firstResult = updateAppendix({
-    overrides,
-    appendix: {},
-    dependencies: { react: "^18.0.0" },
-    packageName: "root",
-    cache,
-  });
+  const appendix = {};
+  const dependencies = { react: "^18.0.0" };
+  const fixture = { overrides, cache, appendix, dependencies };
+  return fixture;
+};
 
+test("updateAppendix - does not mutate original appendix with nested overrides on cache hit", () => {
+  const options = Object.assign(createCachedReactFixture(), { packageName: "root" });
+  const firstResult = updateAppendix(options);
   const snapshot = JSON.parse(JSON.stringify(firstResult));
-
-  updateAppendix({
-    overrides,
-    appendix: firstResult,
-    dependencies: { react: "^18.0.0" },
-    packageName: "root",
-    cache,
-  });
-
+  const dependencies = { react: "^18.0.0" };
+  const repeatedOptions = Object.assign({}, options, { appendix: firstResult, dependencies });
+  updateAppendix(repeatedOptions);
   assert.deepStrictEqual(firstResult, snapshot);
 });
 
 test("updateAppendix - does not mutate original appendix with nested overrides", () => {
-  const overrides: OverridesType = { react: { "react-dom": "18.0.0" } };
+  const react = { "react-dom": "18.0.0" };
+  const overrides: OverridesType = { react };
   const originalAppendix: Appendix = {};
-  const appendixRef = originalAppendix;
 
+  const dependencies = { react: "^18.0.0" };
   const result = updateAppendix({
     overrides,
     appendix: originalAppendix,
-    dependencies: { react: "^18.0.0" },
+    dependencies,
     packageName: "root",
   });
 
   assert.notStrictEqual(result["react-dom@18.0.0"], undefined);
-  assert.strictEqual(Object.keys(appendixRef).length, 0);
+  assert.strictEqual(Object.keys(originalAppendix).length, 0);
 });
 
 test("processAndWritePackageJSON - writes appendix to file when writeAppendixToFile=true", () => {
   const tempPath = join(tmpdir(), `pastoralist-test-${Date.now()}.json`);
-  const pkg = {
-    name: "test-pkg",
-    dependencies: { lodash: "^4.17.20" },
-  };
+  const dependencies = { lodash: "^4.17.20" };
+  const pkg = { name: "test-pkg", dependencies };
   writeFileSync(tempPath, JSON.stringify(pkg, null, 2));
 
   try {
@@ -333,38 +359,34 @@ test("processAndWritePackageJSON - writes appendix to file when writeAppendixToF
 });
 
 test("processOverrideEntry - simple override produces correct appendix", () => {
-  const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "4.17.19" },
-    packageName: "my-app",
-  });
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "4.17.19" };
+  const result = updateAppendix({ overrides, dependencies, packageName: "my-app" });
   const key = "lodash@4.17.21";
   assert.notStrictEqual(result[key], undefined);
   assert.notStrictEqual(result[key].dependents?.["my-app"], undefined);
 });
 
 test("processOverrideEntry - nested override produces correct appendix", () => {
-  const result = updateAppendix({
-    overrides: { express: { "body-parser": "1.20.0" } },
-    dependencies: { express: "4.18.0" },
-    packageName: "my-app",
-  });
+  const express = { "body-parser": "1.20.0" };
+  const overrides = { express };
+  const dependencies = { express: "4.18.0" };
+  const result = updateAppendix({ overrides, dependencies, packageName: "my-app" });
   const key = "body-parser@1.20.0";
   assert.notStrictEqual(result[key], undefined);
 });
 
 test("processOverrideEntry - cache hit returns cached item", () => {
   const cache = new Map();
-  const firstResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "4.17.19" },
-    packageName: "pkg-a",
-    cache,
-  });
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "4.17.19" };
+  const firstResult = updateAppendix({ overrides, dependencies, packageName: "pkg-a", cache });
 
+  const overrides2 = { lodash: "4.17.21" };
+  const dependencies2 = { lodash: "4.17.19" };
   const secondResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "4.17.19" },
+    overrides: overrides2,
+    dependencies: dependencies2,
     packageName: "pkg-b",
     cache,
   });
@@ -375,9 +397,11 @@ test("processOverrideEntry - cache hit returns cached item", () => {
 });
 
 test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
+  const overrides = { lodash: "4.17.21", "unused-pkg": "1.0.0" };
+  const dependencies = { lodash: "4.17.19" };
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
-    dependencies: { lodash: "4.17.19" },
+    overrides,
+    dependencies,
     packageName: "my-app",
     onlyUsedOverrides: true,
   });
@@ -387,10 +411,8 @@ test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
 
 test("processAndWritePackageJSON - includes workspace package whose dep matches a selector-range override key", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-direct-match.json");
-  writeFileSync(
-    pkgPath,
-    JSON.stringify({ name: "workspace-pkg", dependencies: { minimatch: "^3.0.0" } }),
-  );
+  const dependencies = { minimatch: "^3.0.0" };
+  writePackageFixture(pkgPath, { name: "workspace-pkg", dependencies });
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
   unlinkSync(pkgPath);
@@ -400,13 +422,13 @@ test("processAndWritePackageJSON - includes workspace package whose dep matches 
 
 test("processAndWritePackageJSON - includes workspace package whose dep is a graph-transitive match for selector-range override key", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-graph-match.json");
-  writeFileSync(
-    pkgPath,
-    JSON.stringify({ name: "workspace-pkg", dependencies: { glob: "^7.0.0" } }),
-  );
+  const dependencies = { glob: "^7.0.0" };
+  writePackageFixture(pkgPath, { name: "workspace-pkg", dependencies });
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const minimatch = ["glob"];
+  const dependencyGraph = { minimatch };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false, {
-    dependencyGraph: { minimatch: ["glob"] },
+    dependencyGraph,
   });
   unlinkSync(pkgPath);
   assert.notStrictEqual(result, undefined);
@@ -415,13 +437,14 @@ test("processAndWritePackageJSON - includes workspace package whose dep is a gra
 
 test("processAndWritePackageJSON - does not infer workspace usage from a flattened graph", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-incomplete-tracking.json");
-  writeFileSync(
-    pkgPath,
-    JSON.stringify({ name: "workspace-pkg", dependencies: { glob: "^7.0.0" } }),
-  );
+  const dependencies = { glob: "^7.0.0" };
+  writePackageFixture(pkgPath, { name: "workspace-pkg", dependencies });
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
-  const dependencyGraph = { minimatch: ["glob"] };
-  const dependencyTracking = { [pkgPath]: { dependents: {}, complete: false } };
+  const minimatch = ["glob"];
+  const dependencyGraph = { minimatch };
+  const dependents = {};
+  const pkgPath2 = { dependents, complete: false };
+  const dependencyTracking = { [pkgPath]: pkgPath2 };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false, {
     dependencyGraph,
     dependencyTracking,
@@ -432,7 +455,7 @@ test("processAndWritePackageJSON - does not infer workspace usage from a flatten
 
 const writeIncompleteWorkspaceFixture = (pkgPath: string, dependencies: Record<string, string>) => {
   const manifest = { name: "workspace-pkg", dependencies };
-  writeFileSync(pkgPath, JSON.stringify(manifest));
+  writePackageFixture(pkgPath, manifest);
 };
 
 test("processAndWritePackageJSON - retains known tracked dependents when tracking is incomplete", () => {
@@ -472,10 +495,8 @@ test("processAndWritePackageJSON - does not use the shared tree for incomplete w
 
 test("processAndWritePackageJSON - excludes workspace package with no relation to any override", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-no-match.json");
-  writeFileSync(
-    pkgPath,
-    JSON.stringify({ name: "workspace-pkg", dependencies: { express: "^4.0.0" } }),
-  );
+  const dependencies = { express: "^4.0.0" };
+  writePackageFixture(pkgPath, { name: "workspace-pkg", dependencies });
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
   unlinkSync(pkgPath);
@@ -497,24 +518,29 @@ afterEach(() => {
   }
 });
 
-test("resolveAppendixTarget - resolves JSON targets", () => {
-  const jsonSource = { format: "json" as const, path: resolve(TEST_DIR, "config.json") };
+const createJsonTargetFixture = () => {
+  const format = "json" as const;
+  const path = resolve(TEST_DIR, "config.json");
+  const jsonSource = { format, path };
 
+  const path2 = resolve(TEST_DIR, "ledger.json");
+  const fixture = { jsonSource, path2 };
+  return fixture;
+};
+
+test("resolveAppendixTarget - resolves JSON targets", () => {
+  const { jsonSource, path2 } = createJsonTargetFixture();
   assert.deepStrictEqual(
     resolveAppendixTarget({ appendixSource: "ledger.json" }, undefined, TEST_DIR),
-    {
-      path: resolve(TEST_DIR, "ledger.json"),
-    },
+    { path: path2 },
   );
+  const path3 = resolve(TEST_DIR, ".pastoralistrc");
   assert.deepStrictEqual(
     resolveAppendixTarget({ appendixSource: ".pastoralistrc" }, undefined, TEST_DIR),
-    {
-      path: resolve(TEST_DIR, ".pastoralistrc"),
-    },
+    { path: path3 },
   );
-  assert.deepStrictEqual(resolveAppendixTarget({}, jsonSource, TEST_DIR), {
-    path: jsonSource.path,
-  });
+  const { path: sourcePath } = jsonSource;
+  assert.deepStrictEqual(resolveAppendixTarget({}, jsonSource, TEST_DIR), { path: sourcePath });
   assert.strictEqual(
     resolveAppendixTarget({}, { format: "javascript", path: "config.js" }, TEST_DIR),
     undefined,
@@ -530,17 +556,22 @@ test("resolveAppendixTarget - rejects non-JSON targets", () => {
 
 test("loadTargetAppendix - reads existing targets", () => {
   const path = resolve(TEST_DIR, "ledger.json");
-  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
-  writeFileSync(path, JSON.stringify({ appendix }));
+  const dependents = { app: "lodash@^4" };
+  const lodash41721 = { dependents };
+  const appendix = { "lodash@4.17.21": lodash41721 };
+  writePackageFixture(path, { appendix });
 
   assert.strictEqual(loadTargetAppendix(undefined), undefined);
-  assert.strictEqual(loadTargetAppendix({ path: resolve(TEST_DIR, "missing.json") }), undefined);
+  const path2 = resolve(TEST_DIR, "missing.json");
+  assert.strictEqual(loadTargetAppendix({ path: path2 }), undefined);
   assert.deepStrictEqual(loadTargetAppendix({ path }), appendix);
 });
 
 test("writeTargetAppendix - creates a target and its parent", () => {
   const path = resolve(TEST_DIR, "config", "ledger.json");
-  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+  const dependents = { app: "lodash@^4" };
+  const lodash41721 = { dependents };
+  const appendix = { "lodash@4.17.21": lodash41721 };
 
   writeTargetAppendix({ path }, appendix, false);
 
@@ -549,7 +580,9 @@ test("writeTargetAppendix - creates a target and its parent", () => {
 
 test("writeTargetAppendix - preserves config and removes an empty appendix", () => {
   const path = resolve(TEST_DIR, "ledger.json");
-  writeFileSync(path, JSON.stringify({ checkSecurity: true, appendix: { stale: {} } }));
+  const stale = {};
+  const appendix = { stale };
+  writePackageFixture(path, { checkSecurity: true, appendix });
 
   writeTargetAppendix({ path }, {}, false);
 
@@ -571,11 +604,15 @@ test("writeTargetAppendix - cleans up failed atomic writes", () => {
 });
 
 test("updateAppendix - should handle empty overrides", () => {
+  const overrides = {};
+  const dependencies = {};
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: {},
-    dependencies: {},
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
@@ -583,26 +620,32 @@ test("updateAppendix - should handle empty overrides", () => {
 });
 
 test("updateAppendix - should create appendix for simple override", () => {
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
-  assert.deepStrictEqual(result["lodash@4.17.21"].dependents, {
-    "test-package": "lodash@^4.17.0",
-  });
+  assert.deepStrictEqual(result["lodash@4.17.21"].dependents, { "test-package": "lodash@^4.17.0" });
 });
 
 test("updateAppendix - should handle onlyUsedOverrides flag", () => {
+  const overrides = { unused: "1.0.0", used: "2.0.0" };
+  const dependencies = { used: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { unused: "1.0.0", used: "2.0.0" },
-    dependencies: { used: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     onlyUsedOverrides: true,
   });
@@ -612,11 +655,15 @@ test("updateAppendix - should handle onlyUsedOverrides flag", () => {
 });
 
 test("updateAppendix - should merge dependencies from all types", () => {
+  const overrides = { pkg: "1.0.0" };
+  const dependencies = { pkg: "^1.0.0" };
+  const devDependencies = { pkg: "^1.0.0" };
+  const peerDependencies = { pkg: "^1.0.0" };
   const result = updateAppendix({
-    overrides: { pkg: "1.0.0" },
-    dependencies: { pkg: "^1.0.0" },
-    devDependencies: { pkg: "^1.0.0" },
-    peerDependencies: { pkg: "^1.0.0" },
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
@@ -624,15 +671,16 @@ test("updateAppendix - should merge dependencies from all types", () => {
 });
 
 test("updateAppendix - should handle nested overrides", () => {
+  const parent = { nested: "2.0.0" };
+  const overrides = { parent };
+  const dependencies = { parent: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: {
-      parent: {
-        nested: "2.0.0",
-      },
-    },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
@@ -640,17 +688,19 @@ test("updateAppendix - should handle nested overrides", () => {
 });
 
 test("updateAppendix - should preserve existing appendix entries", () => {
-  const existingAppendix = {
-    "lodash@4.17.21": {
-      dependents: { "other-package": "lodash@^4.0.0" },
-    },
-  };
+  const dependents = { "other-package": "lodash@^4.0.0" };
+  const lodash41721 = { dependents };
+  const existingAppendix = { "lodash@4.17.21": lodash41721 };
 
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     appendix: existingAppendix,
   });
@@ -660,33 +710,52 @@ test("updateAppendix - should preserve existing appendix entries", () => {
 });
 
 test("updateAppendix - should handle manual override reasons", () => {
+  const overrides = { pkg: "2.0.0" };
+  const dependencies = { pkg: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const manualOverrideReasons = { pkg: "Bug fix required" };
   const result = updateAppendix({
-    overrides: { pkg: "2.0.0" },
-    dependencies: { pkg: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
-    manualOverrideReasons: { pkg: "Bug fix required" },
+    manualOverrideReasons,
   });
 
   assert.strictEqual(result["pkg@2.0.0"].ledger?.reason, "Bug fix required");
 });
 
+const createSecurityDetailsFixture = () => {
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const cves = ["CVE-2021-23337"];
+  const securityOverrideDetails: SecurityOverrideDetail[] = [
+    { packageName: "lodash", reason: "CVE-2021-23337", cves, severity: "high" },
+  ];
+  const fixture = {
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
+    securityOverrideDetails,
+  };
+  return fixture;
+};
+
 test("updateAppendix - should handle security override details", () => {
+  const { overrides, dependencies, devDependencies, peerDependencies, securityOverrideDetails } =
+    createSecurityDetailsFixture();
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
-    securityOverrideDetails: [
-      {
-        packageName: "lodash",
-        reason: "CVE-2021-23337",
-        cves: ["CVE-2021-23337"],
-        severity: "high",
-      },
-    ],
+    securityOverrideDetails,
     securityProvider: "osv",
   });
 
@@ -695,48 +764,54 @@ test("updateAppendix - should handle security override details", () => {
 });
 
 test("updateAppendix - should handle multiple calls with same override key", () => {
-  const firstResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
-    packageName: "package-a",
-  });
-
-  const secondResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+  const options = Object.assign(createRepeatedLodashFixture(), { packageName: "package-a" });
+  const firstResult = updateAppendix(options);
+  const secondOptions = Object.assign(createRepeatedLodashFixture(), {
     packageName: "package-b",
     appendix: firstResult,
   });
-
+  const secondResult = updateAppendix(secondOptions);
   assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-a"], undefined);
   assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-b"], undefined);
 });
 
 test("updateAppendix - should mark overridden dependencies correctly", () => {
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
   assert.strictEqual(result["lodash@4.17.21"].dependents["test-package"], "lodash@^4.17.0");
 });
 
+const createTransitiveOverrideFixture = () => {
+  const overrides = { "transitive-dep": "1.0.0" };
+  const dependencies = {};
+  const devDependencies = {};
+  const peerDependencies = {};
+  const dependencyTree = { "transitive-dep": "1.0.0" };
+  const fixture = { overrides, dependencies, devDependencies, peerDependencies, dependencyTree };
+  return fixture;
+};
+
 test("updateAppendix - should handle packages not in dependencies", () => {
+  const { overrides, dependencies, devDependencies, peerDependencies, dependencyTree } =
+    createTransitiveOverrideFixture();
   const result = updateAppendix({
-    overrides: { "transitive-dep": "1.0.0" },
-    dependencies: {},
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     onlyUsedOverrides: false,
-    dependencyTree: { "transitive-dep": "1.0.0" },
+    dependencyTree,
   });
 
   assert.notStrictEqual(result["transitive-dep@1.0.0"], undefined);
@@ -746,15 +821,27 @@ test("updateAppendix - should handle packages not in dependencies", () => {
   );
 });
 
+const createUnusedOverrideFixture = () => {
+  const overrides = { "unused-pkg": "1.0.0" };
+  const dependencies = {};
+  const devDependencies = {};
+  const peerDependencies = {};
+  const dependencyTree = {};
+  const fixture = { overrides, dependencies, devDependencies, peerDependencies, dependencyTree };
+  return fixture;
+};
+
 test("updateAppendix - should handle unused overrides", () => {
+  const { overrides, dependencies, devDependencies, peerDependencies, dependencyTree } =
+    createUnusedOverrideFixture();
   const result = updateAppendix({
-    overrides: { "unused-pkg": "1.0.0" },
-    dependencies: {},
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     onlyUsedOverrides: false,
-    dependencyTree: {},
+    dependencyTree,
   });
 
   assert.notStrictEqual(result["unused-pkg@1.0.0"], undefined);
@@ -765,17 +852,19 @@ test("updateAppendix - should handle unused overrides", () => {
 });
 
 test("updateAppendix - should reproduce dependency tree bug: keep used, remove unused", () => {
+  const overrides = { lodash: "4.17.21", axios: "1.0.0" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const dependencyTree = {};
   const result = updateAppendix({
-    overrides: {
-      lodash: "4.17.21",
-      axios: "1.0.0",
-    },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test",
     onlyUsedOverrides: false,
-    dependencyTree: {},
+    dependencyTree,
   });
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
@@ -786,11 +875,15 @@ test("updateAppendix - should reproduce dependency tree bug: keep used, remove u
 });
 
 test("updateAppendix - should not incorrectly label unused overrides as transitive deps (old bug)", () => {
+  const overrides = { axios: "1.0.0" };
+  const dependencies = {};
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { axios: "1.0.0" },
-    dependencies: {},
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test",
     onlyUsedOverrides: false,
   });
@@ -800,16 +893,16 @@ test("updateAppendix - should not incorrectly label unused overrides as transiti
 });
 
 test("updateAppendix - should handle deeply nested overrides", () => {
+  const parent = { child: "2.0.0", "another-child": "3.0.0" };
+  const overrides = { parent };
+  const dependencies = { parent: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: {
-      parent: {
-        child: "2.0.0",
-        "another-child": "3.0.0",
-      },
-    },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
   });
 
@@ -817,35 +910,38 @@ test("updateAppendix - should handle deeply nested overrides", () => {
   assert.notStrictEqual(result["another-child@3.0.0"], undefined);
 });
 
-test("updateAppendix - should use cache for repeated keys", () => {
-  const firstResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
-    packageName: "package-a",
-  });
+const createRepeatedLodashFixture = () => {
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const fixture = { overrides, dependencies, devDependencies, peerDependencies };
+  return fixture;
+};
 
-  const secondResult = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+test("updateAppendix - should use cache for repeated keys", () => {
+  const options = Object.assign(createRepeatedLodashFixture(), { packageName: "package-a" });
+  const firstResult = updateAppendix(options);
+  const secondOptions = Object.assign(createRepeatedLodashFixture(), {
     packageName: "package-b",
     appendix: firstResult,
   });
-
+  const secondResult = updateAppendix(secondOptions);
   assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-a"], undefined);
   assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-b"], undefined);
 });
 
 test("updateAppendix - should use provided addedDate in ledger", () => {
   const gitDate = "2023-06-15T10:30:00+00:00";
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     addedDate: gitDate,
   });
@@ -853,20 +949,36 @@ test("updateAppendix - should use provided addedDate in ledger", () => {
   assert.strictEqual(result["lodash@4.17.21"].ledger?.addedDate, gitDate);
 });
 
-test("updateAppendix - should preserve existing ledger addedDate over provided addedDate", () => {
-  const existingAppendix = {
-    "lodash@4.17.21": {
-      dependents: { "other-package": "lodash@^4.0.0" },
-      ledger: { addedDate: "2022-01-01T00:00:00.000Z" },
-    },
-  };
+const createDatedLedgerFixture = () => {
+  const dependents = { "other-package": "lodash@^4.0.0" };
+  const ledger = { addedDate: "2022-01-01T00:00:00.000Z" };
+  const lodash41721 = { dependents, ledger };
+  const existingAppendix = { "lodash@4.17.21": lodash41721 };
   const gitDate = "2023-06-15T10:30:00+00:00";
 
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const fixture = {
+    existingAppendix,
+    gitDate,
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
+  };
+  return fixture;
+};
+
+test("updateAppendix - should preserve existing ledger addedDate over provided addedDate", () => {
+  const { existingAppendix, gitDate, overrides, dependencies, devDependencies, peerDependencies } =
+    createDatedLedgerFixture();
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     appendix: existingAppendix,
     addedDate: gitDate,
@@ -877,11 +989,16 @@ test("updateAppendix - should preserve existing ledger addedDate over provided a
 
 test("updateAppendix - should use addedDate for nested overrides", () => {
   const gitDate = "2023-06-15T10:30:00+00:00";
+  const parent = { nested: "2.0.0" };
+  const overrides = { parent };
+  const dependencies = { parent: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { parent: { nested: "2.0.0" } },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     addedDate: gitDate,
   });
@@ -889,24 +1006,24 @@ test("updateAppendix - should use addedDate for nested overrides", () => {
   assert.strictEqual(result["nested@2.0.0"].ledger?.addedDate, gitDate);
 });
 
-test("updateAppendix - should handle nested override cache hits", () => {
-  const firstResult = updateAppendix({
-    overrides: { parent: { nested: "1.0.0" } },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
-    packageName: "package-a",
-  });
+const createRepeatedNestedFixture = () => {
+  const parent = { nested: "1.0.0" };
+  const overrides = { parent };
+  const dependencies = { parent: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const fixture = { overrides, dependencies, devDependencies, peerDependencies };
+  return fixture;
+};
 
-  const secondResult = updateAppendix({
-    overrides: { parent: { nested: "1.0.0" } },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+test("updateAppendix - should handle nested override cache hits", () => {
+  const options = Object.assign(createRepeatedNestedFixture(), { packageName: "package-a" });
+  const firstResult = updateAppendix(options);
+  const secondOptions = Object.assign(createRepeatedNestedFixture(), {
     packageName: "package-b",
     appendix: firstResult,
   });
-
+  const secondResult = updateAppendix(secondOptions);
   assert.notStrictEqual(secondResult["nested@1.0.0"], undefined);
 });
 
@@ -923,14 +1040,8 @@ test("processAndWritePackageJSON - should return undefined for non-existent file
 
 test("processAndWritePackageJSON - should return undefined for package without matching deps", () => {
   const testPkgPath = resolve(TEST_DIR, "no-match-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      dependencies: { express: "^4.0.0" },
-    }),
-  );
+  const dependencies = { express: "^4.0.0" };
+  writePackageFixture(testPkgPath, { name: "test-pkg", version: "1.0.0", dependencies });
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
@@ -939,21 +1050,17 @@ test("processAndWritePackageJSON - should return undefined for package without m
 
 test("processAndWritePackageJSON - should return undefined when dependency graph has no matching dependent", () => {
   const testPkgPath = resolve(TEST_DIR, "no-graph-match-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      dependencies: { vite: "^5.0.0" },
-    }),
-  );
+  const dependencies = { vite: "^5.0.0" };
+  writePackageFixture(testPkgPath, { name: "test-pkg", version: "1.0.0", dependencies });
 
+  const bodyParser = ["express"];
+  const dependencyGraph = { "body-parser": bodyParser };
   const result = processAndWritePackageJSON(
     testPkgPath,
     { "body-parser": "1.20.0" },
     ["body-parser"],
     false,
-    { dependencyGraph: { "body-parser": ["express"] } },
+    { dependencyGraph },
   );
 
   assert.strictEqual(result, undefined);
@@ -961,14 +1068,8 @@ test("processAndWritePackageJSON - should return undefined when dependency graph
 
 test("processAndWritePackageJSON - should process package with matching dependency", () => {
   const testPkgPath = resolve(TEST_DIR, "match-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  writePackageFixture(testPkgPath, { name: "test-pkg", version: "1.0.0", dependencies });
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
@@ -979,10 +1080,8 @@ test("processAndWritePackageJSON - should process package with matching dependen
 
 test("processAndWritePackageJSON - does not write by default", () => {
   const testPkgPath = resolve(TEST_DIR, "read-only-package.json");
-  const original = JSON.stringify({
-    name: "test-pkg",
-    dependencies: { lodash: "^4.17.0" },
-  });
+  const dependencies = { lodash: "^4.17.0" };
+  const original = JSON.stringify({ name: "test-pkg", dependencies });
   writeFileSync(testPkgPath, original);
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"]);
@@ -993,14 +1092,8 @@ test("processAndWritePackageJSON - does not write by default", () => {
 
 test("processAndWritePackageJSON - should handle devDependencies", () => {
   const testPkgPath = resolve(TEST_DIR, "dev-dep-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      devDependencies: { lodash: "^4.17.0" },
-    }),
-  );
+  const devDependencies = { lodash: "^4.17.0" };
+  writePackageFixture(testPkgPath, { name: "test-pkg", version: "1.0.0", devDependencies });
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
@@ -1010,14 +1103,8 @@ test("processAndWritePackageJSON - should handle devDependencies", () => {
 
 test("processAndWritePackageJSON - should handle peerDependencies", () => {
   const testPkgPath = resolve(TEST_DIR, "peer-dep-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      peerDependencies: { react: "^18.0.0" },
-    }),
-  );
+  const peerDependencies = { react: "^18.0.0" };
+  writePackageFixture(testPkgPath, { name: "test-pkg", version: "1.0.0", peerDependencies });
 
   const result = processAndWritePackageJSON(testPkgPath, { react: "18.2.0" }, ["react"], false);
 
@@ -1027,15 +1114,14 @@ test("processAndWritePackageJSON - should handle peerDependencies", () => {
 
 test("processAndWritePackageJSON - should write appendix to file when writeAppendixToFile is true", () => {
   const testPkgPath = resolve(TEST_DIR, "write-appendix-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      pastoralist: { depPaths: "workspace", checkSecurity: true },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const pastoralist = { depPaths: "workspace", checkSecurity: true };
+  writePackageFixture(testPkgPath, {
+    name: "test-pkg",
+    version: "1.0.0",
+    dependencies,
+    pastoralist,
+  });
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], true);
 
@@ -1048,19 +1134,23 @@ test("processAndWritePackageJSON - should write appendix to file when writeAppen
   assert.strictEqual(updatedPkg.pastoralist.checkSecurity, true);
 });
 
-test("processAndWritePackageJSON - should handle multiple dependency types", () => {
+const createDependencyGroupsFixture = () => {
   const testPkgPath = resolve(TEST_DIR, "multi-dep-package.json");
-  writeFileSync(
-    testPkgPath,
-    JSON.stringify({
-      name: "test-pkg",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      devDependencies: { typescript: "^5.0.0" },
-      peerDependencies: { react: "^18.0.0" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = { typescript: "^5.0.0" };
+  const peerDependencies = { react: "^18.0.0" };
+  writePackageFixture(testPkgPath, {
+    name: "test-pkg",
+    version: "1.0.0",
+    dependencies,
+    devDependencies,
+    peerDependencies,
+  });
+  return testPkgPath;
+};
 
+test("processAndWritePackageJSON - should handle multiple dependency types", () => {
+  const testPkgPath = createDependencyGroupsFixture();
   const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21", typescript: "5.3.0", react: "18.2.0" },
@@ -1076,17 +1166,20 @@ test("processAndWritePackageJSON - should handle multiple dependency types", () 
 
 test("updateAppendix - should hit cache for simple override key", () => {
   const cache = new Map();
-  const cachedItem = {
-    dependents: { "cached-package": "lodash@^4.17.0" },
-    ledger: { reason: "cached reason" },
-  };
+  const dependents = { "cached-package": "lodash@^4.17.0" };
+  const ledger = { reason: "cached reason" };
+  const cachedItem = { dependents, ledger };
   cache.set("lodash@4.17.21", cachedItem);
 
+  const overrides = { lodash: "4.17.21" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { lodash: "4.17.21" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     cache,
   });
@@ -1096,16 +1189,20 @@ test("updateAppendix - should hit cache for simple override key", () => {
 
 test("updateAppendix - should hit cache for nested override key", () => {
   const cache = new Map();
-  const cachedItem = {
-    dependents: { "cached-package": "parent@^1.0.0 (nested override)" },
-  };
+  const dependents = { "cached-package": "parent@^1.0.0 (nested override)" };
+  const cachedItem = { dependents };
   cache.set("nested@2.0.0", cachedItem);
 
+  const parent = { nested: "2.0.0" };
+  const overrides = { parent };
+  const dependencies = { parent: "^1.0.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
   const result = updateAppendix({
-    overrides: { parent: { nested: "2.0.0" } },
-    dependencies: { parent: "^1.0.0" },
-    devDependencies: {},
-    peerDependencies: {},
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
     packageName: "test-package",
     cache,
   });
@@ -1113,76 +1210,55 @@ test("updateAppendix - should hit cache for nested override key", () => {
   assert.strictEqual(result["nested@2.0.0"], cachedItem);
 });
 
-test("constructAppendix - handles workspace packages with overrides", () => {
-  const workspaceDir = resolve(TEST_DIR, "workspace-test");
+const createWorkspacePaths = (name: string) => {
+  const workspaceDir = resolve(TEST_DIR, name);
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
   const pkgBDir = resolve(workspaceDir, "packages", "pkg-b");
+  const fixture = { pkgADir, pkgBDir };
+  return fixture;
+};
 
-  mkdirSync(pkgADir, { recursive: true });
-  mkdirSync(pkgBDir, { recursive: true });
+test("constructAppendix - handles workspace packages with overrides", () => {
+  const { pkgADir, pkgBDir } = createWorkspacePaths("workspace-test");
 
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      overrides: { lodash: "4.17.21" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const overrides = { lodash: "4.17.21" };
+  const pkgAPath = writeWorkspaceFixture(pkgADir, dependencies, overrides);
 
-  writeFileSync(
-    resolve(pkgBDir, "package.json"),
-    JSON.stringify({
-      name: "pkg-b",
-      version: "1.0.0",
-      dependencies: { express: "^4.17.0" },
-    }),
-  );
+  const dependencies2 = { express: "^4.17.0" };
+  const pkgBPath = writeWorkspaceFixture(pkgBDir, dependencies2);
 
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = { npm: { lodash: "4.17.21" } };
+  const npm = { lodash: "4.17.21" };
+  const overridesData = { npm };
 
-  const result = constructAppendix(
-    [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
-    overridesData,
-    log,
-  );
+  const result = constructAppendix([pkgAPath, pkgBPath], overridesData, log);
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
+
+const createWorkspaceGraphContext = () => {
+  const dependencyTree = { "body-parser": "1.20.0", postcss: "8.4.0" };
+  const bodyParser = ["express"];
+  const postcss = ["webpack"];
+  const dependencyGraph = { "body-parser": bodyParser, postcss };
+  const context = { dependencyTree, dependencyGraph };
+  return context;
+};
 
 test("constructAppendix - keeps transitive workspace overrides from dependency graph", () => {
   const workspaceDir = resolve(TEST_DIR, "workspace-graph-test");
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
 
-  mkdirSync(pkgADir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { express: "^4.18.0" },
-    }),
-  );
+  const dependencies = { express: "^4.18.0" };
+  const pkgAPath = writeWorkspaceFixture(pkgADir, dependencies);
 
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = {
-    type: "npm",
-    overrides: { "body-parser": "1.20.0", postcss: "8.4.0" },
-  };
+  const overrides = { "body-parser": "1.20.0", postcss: "8.4.0" };
+  const overridesData = { type: "npm", overrides };
 
-  const result = constructAppendix([resolve(pkgADir, "package.json")], overridesData, log, {
-    dependencyTree: {
-      "body-parser": "1.20.0",
-      postcss: "8.4.0",
-    },
-    dependencyGraph: {
-      "body-parser": ["express"],
-      postcss: ["webpack"],
-    },
-  });
+  const context = createWorkspaceGraphContext();
+  const result = constructAppendix([pkgAPath], overridesData, log, context);
 
   assert.notStrictEqual(result["body-parser@1.20.0"], undefined);
   assert.strictEqual(
@@ -1196,25 +1272,16 @@ test("constructAppendix - ignores dependency tree context when no relevant depen
   const workspaceDir = resolve(TEST_DIR, "workspace-tree-only-test");
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
 
-  mkdirSync(pkgADir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const pkgAPath = writeWorkspaceFixture(pkgADir, dependencies);
 
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = {
-    type: "npm",
-    overrides: { lodash: "4.17.21" },
-  };
+  const overrides = { lodash: "4.17.21" };
+  const overridesData = { type: "npm", overrides };
 
-  const result = constructAppendix([resolve(pkgADir, "package.json")], overridesData, log, {
-    dependencyTree: { lodash: "4.17.21" },
+  const dependencyTree = { lodash: "4.17.21" };
+  const result = constructAppendix([pkgAPath], overridesData, log, {
+    dependencyTree,
   });
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
@@ -1222,41 +1289,21 @@ test("constructAppendix - ignores dependency tree context when no relevant depen
 });
 
 test("constructAppendix - merges overrides from multiple workspaces", () => {
-  const workspaceDir = resolve(TEST_DIR, "multi-workspace");
-  const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
-  const pkgBDir = resolve(workspaceDir, "packages", "pkg-b");
+  const { pkgADir, pkgBDir } = createWorkspacePaths("multi-workspace");
 
-  mkdirSync(pkgADir, { recursive: true });
-  mkdirSync(pkgBDir, { recursive: true });
+  const dependencies = { lodash: "^4.17.0" };
+  const overrides = { lodash: "4.17.21" };
+  const pkgAPath = writeWorkspaceFixture(pkgADir, dependencies, overrides);
 
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      overrides: { lodash: "4.17.21" },
-    }),
-  );
-
-  writeFileSync(
-    resolve(pkgBDir, "package.json"),
-    JSON.stringify({
-      name: "pkg-b",
-      version: "1.0.0",
-      dependencies: { react: "^18.0.0" },
-      overrides: { react: "18.2.0" },
-    }),
-  );
+  const dependencies2 = { react: "^18.0.0" };
+  const overrides2 = { react: "18.2.0" };
+  const pkgBPath = writeWorkspaceFixture(pkgBDir, dependencies2, overrides2);
 
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = { npm: { lodash: "4.17.21", react: "18.2.0" } };
+  const npm = { lodash: "4.17.21", react: "18.2.0" };
+  const overridesData = { npm };
 
-  const result = constructAppendix(
-    [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
-    overridesData,
-    log,
-  );
+  const result = constructAppendix([pkgAPath, pkgBPath], overridesData, log);
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
   assert.notStrictEqual(result["react@18.2.0"], undefined);
@@ -1266,27 +1313,20 @@ test("constructAppendix - returns empty when no overrides found", () => {
   const workspaceDir = resolve(TEST_DIR, "no-overrides");
   const pkgDir = resolve(workspaceDir, "packages", "pkg");
 
-  mkdirSync(pkgDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgDir, "package.json"),
-    JSON.stringify({
-      name: "pkg",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const pkgPath = writeWorkspaceFixture(pkgDir, dependencies);
 
   const log = logger({ file: "test", isLogging: false });
 
-  const result = constructAppendix([resolve(pkgDir, "package.json")], {}, log);
+  const result = constructAppendix([pkgPath], {}, log);
 
   assert.deepStrictEqual(result, {});
 });
 
 test("constructAppendix - handles non-existent package files", () => {
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = { npm: { lodash: "4.17.21" } };
+  const npm = { lodash: "4.17.21" };
+  const overridesData = { npm };
 
   const result = constructAppendix(["/non/existent/package.json"], overridesData, log);
 
@@ -1297,33 +1337,21 @@ test("constructAppendix - logs debug info when workspace has overrides", () => {
   const workspaceDir = resolve(TEST_DIR, "debug-log-test");
   const pkgDir = resolve(workspaceDir, "packages", "pkg");
 
-  mkdirSync(pkgDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgDir, "package.json"),
-    JSON.stringify({
-      name: "pkg",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      overrides: { lodash: "4.17.21" },
-    }),
-  );
+  const dependencies = { lodash: "^4.17.0" };
+  const overrides = { lodash: "4.17.21" };
+  const pkgPath = writeWorkspaceFixture(pkgDir, dependencies, overrides);
 
   const debug = mock((_message: string) => {});
-  const log = {
-    debug,
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  };
+  const log = { debug, error: () => {}, info: () => {}, warn: () => {} };
 
-  const overridesData = { npm: { lodash: "4.17.21" } };
+  const npm = { lodash: "4.17.21" };
+  const overridesData = { npm };
 
-  constructAppendix([resolve(pkgDir, "package.json")], overridesData, log);
+  constructAppendix([pkgPath], overridesData, log);
 
-  const debugMessages = debug.mock.calls
-    .map((call) => (Array.isArray(call) ? call : call.arguments))
-    .flat();
+  const debugMessages = debug.mock.calls.flatMap((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
   assert.strictEqual(
     debugMessages.some((message) => message.includes("overrides")),
     true,
@@ -1331,75 +1359,53 @@ test("constructAppendix - logs debug info when workspace has overrides", () => {
 });
 
 test("constructAppendix - aggregates appendices from multiple results", () => {
-  const workspaceDir = resolve(TEST_DIR, "aggregate-test");
-  const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
-  const pkgBDir = resolve(workspaceDir, "packages", "pkg-b");
+  const { pkgADir, pkgBDir } = createWorkspacePaths("aggregate-test");
 
-  mkdirSync(pkgADir, { recursive: true });
-  mkdirSync(pkgBDir, { recursive: true });
+  const dependencies = { lodash: "^4.17.0" };
+  const overrides = { lodash: "4.17.21" };
+  const pkgAPath = writeWorkspaceFixture(pkgADir, dependencies, overrides);
 
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      overrides: { lodash: "4.17.21" },
-    }),
-  );
-
-  writeFileSync(
-    resolve(pkgBDir, "package.json"),
-    JSON.stringify({
-      name: "pkg-b",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      overrides: { lodash: "4.17.21" },
-    }),
-  );
+  const dependencies2 = { lodash: "^4.17.0" };
+  const overrides2 = { lodash: "4.17.21" };
+  const pkgBPath = writeWorkspaceFixture(pkgBDir, dependencies2, overrides2);
 
   const log = logger({ file: "test", isLogging: false });
-  const overridesData = { npm: { lodash: "4.17.21" } };
+  const npm = { lodash: "4.17.21" };
+  const overridesData = { npm };
 
-  const result = constructAppendix(
-    [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
-    overridesData,
-    log,
-  );
+  const result = constructAppendix([pkgAPath, pkgBPath], overridesData, log);
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
   assert.notStrictEqual(result["lodash@4.17.21"].dependents["pkg-a"], undefined);
   assert.notStrictEqual(result["lodash@4.17.21"].dependents["pkg-b"], undefined);
 });
 
+const createRemovalFixture = () => {
+  const overrides = { lodash: "4.17.21", "unused-pkg": "1.0.0" };
+  const dependencies = { lodash: "^4.17.0" };
+  const devDependencies = {};
+  const peerDependencies = {};
+  const dependencyTree = {};
+  const fixture = { overrides, dependencies, devDependencies, peerDependencies, dependencyTree };
+  return fixture;
+};
+
 test("remove-unused integration - finds and removes unused overrides from appendix", () => {
-  const appendix = updateAppendix({
-    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
-    dependencies: { lodash: "^4.17.0" },
-    devDependencies: {},
-    peerDependencies: {},
+  const options = Object.assign(createRemovalFixture(), {
     packageName: "root",
     onlyUsedOverrides: false,
-    dependencyTree: {},
   });
-
+  const appendix = updateAppendix(options);
   const unusedKeys = findUnusedAppendixEntries(appendix);
-
   assert.deepStrictEqual(unusedKeys, ["unused-pkg@1.0.0"]);
-
   const packageNames = extractPackageNames(unusedKeys);
-
   assert.deepStrictEqual(packageNames, ["unused-pkg"]);
-
   const cleanedAppendix = removeAppendixKeys(appendix, unusedKeys);
-
   assert.notStrictEqual(cleanedAppendix["lodash@4.17.21"], undefined);
   assert.strictEqual(cleanedAppendix["unused-pkg@1.0.0"], undefined);
-
   const cleanedOverrides = removeOverrideKeys(
     { lodash: "4.17.21", "unused-pkg": "1.0.0" },
     packageNames,
   );
-
   assert.deepStrictEqual(cleanedOverrides, { lodash: "4.17.21" });
 });

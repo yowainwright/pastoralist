@@ -228,7 +228,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        package-manager: [pnpm, npm, yarn, pnpm-yaml, external-config, js-mgrs, sveltekit2]
+        package-manager: [pnpm, npm, yarn, pnpm-yaml, external-config, js-mgrs, sveltekit2, python]
       fail-fast: false
 
     name: e2e (${{ matrix.package-manager }})

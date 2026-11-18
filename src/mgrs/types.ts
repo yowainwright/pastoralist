@@ -3,7 +3,14 @@ import type {
   DependencyManifest,
   DependencyDiagnosticReporter,
   ResolvedDependencyGraph,
+  DependencyTracking,
 } from "../core/dep-tracker";
+
+export type NativeProject = {
+  manager: "uv";
+  tracking: DependencyTracking;
+  packageCount: number;
+};
 
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 export type OverrideField = "resolutions" | "overrides" | "pnpm";

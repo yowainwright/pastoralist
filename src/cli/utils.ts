@@ -6,7 +6,7 @@ import {
 } from "./diagnostics";
 import { FARMER, SHEEP } from "../constants";
 import type { update } from "../core/update";
-import { findUnusedAppendixEntries } from "../core/appendix/utils";
+import { findUnusedAppendixEntries, toCompactAppendix } from "../core/appendix/utils";
 import { renderTable } from "../dx";
 import type { OverrideInfo } from "../dx/types";
 import type { AppendixItem, PastoralistJSON, PastoralistResult } from "../types";
@@ -110,6 +110,17 @@ const getAppliedOverrides = (finalOverrides: Record<string, unknown>): Record<st
       .map((key) => [key, finalOverrides[key] as string]),
   );
 
+const getResultAppendix = (
+  updateResult: ReturnType<typeof update>,
+  config: PastoralistJSON | undefined,
+) => {
+  const appendix = updateResult.finalAppendix || {};
+  const useCompact = config?.pastoralist?.compactAppendix === true;
+  if (!useCompact) return appendix;
+  const compact = toCompactAppendix(appendix);
+  return compact;
+};
+
 const hasUpdateChanges = (
   updateResult: ReturnType<typeof update>,
   config: PastoralistJSON | undefined,
@@ -118,7 +129,7 @@ const hasUpdateChanges = (
   const previousOverrides =
     updateResult.overrideSource?.overrides || getConfiguredOverrides(config);
   const appendixChanged =
-    JSON.stringify(updateResult.finalAppendix || {}) !== JSON.stringify(previousAppendix);
+    JSON.stringify(getResultAppendix(updateResult, config)) !== JSON.stringify(previousAppendix);
   const overridesChanged =
     JSON.stringify(updateResult.finalOverrides || {}) !== JSON.stringify(previousOverrides);
   const dependencyChanges = ["dependencies", "devDependencies"].some((field) => {

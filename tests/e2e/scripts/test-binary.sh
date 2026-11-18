@@ -63,6 +63,31 @@ test_dry_run() {
   printf '[PASS] binary dry run\n'
 }
 
+test_uv_tracking() {
+  uv_project="$temp_dir/uv"
+  mkdir -p "$uv_project"
+  cp tests/e2e/fixtures/uv/pyproject.toml tests/e2e/fixtures/uv/uv.lock "$uv_project/"
+  uv_output=$(run_binary --root "$uv_project" --outputFormat json)
+  printf '%s\n' "$uv_output" | grep -Fq '"urllib3":"==2.8.0"' || fail "binary uv override"
+  grep -Fq 'requests' "$uv_project/.pastoralistrc" || fail "binary uv dependency tracking"
+  cmp tests/e2e/fixtures/uv/pyproject.toml "$uv_project/pyproject.toml" || fail "binary uv manifest changed"
+  cmp tests/e2e/fixtures/uv/uv.lock "$uv_project/uv.lock" || fail "binary uv lockfile changed"
+  [ ! -e "$uv_project/package.json" ] || fail "binary uv created package.json"
+  printf '[PASS] binary uv tracking without Node.js or Python\n'
+}
+
+test_uv_saved_ledger() {
+  uv_ledger="$temp_dir/uv/.pastoralistrc"
+  chmod 600 "$uv_ledger"
+  cp "$uv_ledger" "$temp_dir/saved-ledger.json"
+  uv_repeat_output=$(run_binary --root "$temp_dir" --path uv/pyproject.toml --outputFormat json)
+  printf '%s\n' "$uv_repeat_output" | grep -Fq '"updated":false' || fail "binary uv repeat run"
+  cmp "$temp_dir/saved-ledger.json" "$uv_ledger" || fail "binary uv saved ledger changed"
+  uv_permissions=$(node -e 'const { mode } = require("node:fs").statSync(process.argv[1]); process.stdout.write((mode & 0o777).toString(8))' "$uv_ledger")
+  [ "$uv_permissions" = "600" ] || fail "binary uv ledger permissions changed"
+  printf '[PASS] binary uv preserves nested ledger and permissions\n'
+}
+
 main() {
   build_binary
   isolate_binary
@@ -71,6 +96,8 @@ main() {
   test_invalid_option
   test_agent_skill
   test_dry_run
+  test_uv_tracking
+  test_uv_saved_ledger
 }
 
 main "$@"

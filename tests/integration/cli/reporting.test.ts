@@ -11,7 +11,7 @@ import { action, run } from "../../../src/cli";
 import { SecurityChecker } from "../../../src/core/security";
 import { OSVProvider } from "../../../src/core/security/providers/osv";
 import { InteractiveSecurityManager, isVersionVulnerable } from "../../../src/core/security/utils";
-import type { SecurityAlert, SecurityPackage } from "../../../src/types";
+import type { SecurityAlert, SecurityCheckResult, SecurityPackage } from "../../../src/types";
 import { parsePnpmWorkspaceOverrides } from "../../../src/core/overrides";
 import { clearConfigCache } from "../../../src/config";
 import { clearHintCache } from "../../../src/dx";
@@ -47,24 +47,40 @@ const pnpmLock = [
   "snapshots:",
   "  alpha@1.0.0: {}",
 ].join("\n");
+const lockDependencies = { alpha: "1.0.0" };
+const rootPackage = { dependencies: lockDependencies };
+const node_modulesAlpha = { version: "1.0.0" };
+const lockPackages = {
+  "": rootPackage,
+  "node_modules/alpha": node_modulesAlpha,
+};
 const npmLock = JSON.stringify({
   lockfileVersion: 3,
-  packages: {
-    "": { dependencies: { alpha: "1.0.0" } },
-    "node_modules/alpha": { version: "1.0.0" },
-  },
+  packages: lockPackages,
 });
 
-const createManifest = (manager: string, enabled: boolean) => {
+const createManagerOverrides = (manager: string) => {
   const overrides = { alpha: "1.0.0", "unused-me": "2.0.0" };
-  const overrideConfig = manager === "pnpm" ? { pnpm: { overrides } } : { overrides };
-  const security = { enabled, provider: "osv", excludePackages: [], severityThreshold: "low" };
+  const pnpm = { overrides };
+  const pnpmOverrides = { pnpm };
+  const otherOverrides = { overrides };
+  const usesPnpm = manager === "pnpm";
+  const overrideConfig = usesPnpm ? pnpmOverrides : otherOverrides;
+  return overrideConfig;
+};
+
+const createManifest = (manager: string, enabled: boolean) => {
+  const overrideConfig = createManagerOverrides(manager);
+  const excludePackages: string[] = [];
+  const security = { enabled, provider: "osv", excludePackages, severityThreshold: "low" };
+  const dependencies = { alpha: "1.0.0" };
+  const pastoralist = { security };
   const config = Object.assign(
     {
       name: "reporting-fixture",
       version: "1.0.0",
-      dependencies: { alpha: "1.0.0" },
-      pastoralist: { security },
+      dependencies,
+      pastoralist,
     },
     overrideConfig,
   );
@@ -91,21 +107,34 @@ const createFixture = (t: TestContext, manager: string, enabled = true) => {
   const path = join(root, "package.json");
   const manifest = createManifest(manager, enabled);
   writeFileSync(path, manifest);
-  const lockPath = join(root, manager === "pnpm" ? "pnpm-lock.yaml" : "package-lock.json");
-  const lock = manager === "pnpm" ? pnpmLock : npmLock;
+  const usesPnpm = manager === "pnpm";
+  const lockName = usesPnpm ? "pnpm-lock.yaml" : "package-lock.json";
+  const lockPath = join(root, lockName);
+  const lock = usesPnpm ? pnpmLock : npmLock;
   writeFileSync(lockPath, lock);
-  return { root, path, cacheDir, manifest, lockPath, lock };
+  const fixture = { root, path, cacheDir, manifest, lockPath, lock };
+  return fixture;
 };
 
 const captureStdout = (t: TestContext) => {
   const chunks: string[] = [];
   const write = process.stdout.write.bind(process.stdout);
   t.mock.method(process.stdout, "write", (chunk, ...args) => {
-    if (typeof chunk !== "string") return write(chunk, ...args);
-    chunks.push(chunk);
+    if (typeof chunk !== "string") {
+      const written = write(chunk, ...args);
+      return written;
+    }
+    chunks[chunks.length] = chunk;
     return true;
   });
   return () => chunks.join("");
+};
+
+const actOnFixture = (fixture: { root: string; path: string }, mode: Options) => {
+  const { root, path } = fixture;
+  const options = Object.assign({ root, path }, mode);
+  const result = action(options);
+  return result;
 };
 
 const mockScan = (t: TestContext, packagesScanned = 518, vulnerable = false) => {
@@ -113,9 +142,13 @@ const mockScan = (t: TestContext, packagesScanned = 518, vulnerable = false) => 
     ? [{ packageName: "alpha", severity: "high", description: "Test finding" }]
     : [];
   t.mock.method(SecurityChecker.prototype, "checkSecurity", async (_config, options) => {
-    options.onProgress({ message: `Checking ${packagesScanned} packages...` });
+    const message = `Checking ${packagesScanned} packages...`;
+    options.onProgress({ message: message });
     await setTimeout(100);
-    return { alerts, overrides: [], updates: [], packagesScanned };
+    const overrides: SecurityCheckResult["overrides"] = [];
+    const updates: SecurityCheckResult["updates"] = [];
+    const result = { alerts, overrides, updates, packagesScanned };
+    return result;
   });
 };
 
@@ -198,10 +231,11 @@ incompleteModes.forEach((mode) => {
     const output = captureStdout(t);
     const exits: number[] = [];
     t.mock.method(process, "exit", (code) => {
-      exits.push(Number(code));
+      exits[exits.length] = Number(code);
     });
     failSecurityProvider(t);
-    const options = Object.assign({ root: fixture.root, path: fixture.path, noCache: true }, mode);
+    const { root, path } = fixture;
+    const options = Object.assign({ root, path, noCache: true }, mode);
     const result = await action(options);
     assert.equal(result.success, false);
     assert.deepEqual(exits, [1]);
@@ -455,6 +489,7 @@ const kitAlert: SecurityAlert = {
   title: "GHSA-27mw-82g8-phjj",
   fixAvailable: true,
 };
+const lodashCves = ["CVE-2021-23337"];
 const lodashAlert: SecurityAlert = {
   packageName: "lodash",
   currentVersion: "4.17.20",
@@ -463,7 +498,7 @@ const lodashAlert: SecurityAlert = {
   severity: "high",
   title: "Prototype pollution",
   fixAvailable: true,
-  cves: ["CVE-2021-23337"],
+  cves: lodashCves,
 };
 
 const preservedOverrides = Object.fromEntries(
@@ -499,20 +534,23 @@ const mockKitScan = (t: TestContext): void => {
     Promise.resolve([kitAlert, lodashAlert]),
   );
   const dependencies = { lodash: "^4.17.0" };
-  const response = JSON.stringify({ versions: { "1.0.0": { dependencies } } });
+  const parentVersion = { dependencies };
+  const parentVersions = { "1.0.0": parentVersion };
+  const response = JSON.stringify({ versions: parentVersions });
   t.mock.method(globalThis, "fetch", () => Promise.resolve(new Response(response)));
+};
+
+const kitDependencies = { "@sveltejs/kit": "^2.70.3", "test-parent": "1.0.0" };
+const kitManifest = {
+  name: "kit-fixture",
+  version: "1.0.0",
+  packageManager: "pnpm@11.0.7",
+  dependencies: kitDependencies,
 };
 
 const createKitFixture = (t: TestContext) => {
   const fixture = createFixture(t, "pnpm");
-  const dependencies = { "@sveltejs/kit": "^2.70.3", "test-parent": "1.0.0" };
-  const manifest = {
-    name: "kit-fixture",
-    version: "1.0.0",
-    packageManager: "pnpm@11.0.7",
-    dependencies,
-  };
-  writeFileSync(fixture.path, JSON.stringify(manifest));
+  writeFileSync(fixture.path, JSON.stringify(kitManifest));
   const lock = createKitLock();
   writeFileSync(fixture.lockPath, lock);
   const workspace = join(fixture.root, "pnpm-workspace.yaml");
@@ -525,27 +563,30 @@ const createKitFixture = (t: TestContext) => {
   return result;
 };
 
+const forceKitOptions: Options = {
+  outputFormat: "json",
+  checkSecurity: true,
+  forceSecurityRefactor: true,
+  noCache: true,
+};
+const interactiveKitOptions: Options = {
+  outputFormat: "json",
+  checkSecurity: true,
+  interactive: true,
+  noCache: true,
+};
+const fixedKitOverrides = Object.assign({}, preservedOverrides, { lodash: "4.17.21" });
+
 test("forceSecurityRefactor reports the SvelteKit migration and still applies a compatible transitive fix", async (t) => {
   const fixture = createKitFixture(t);
   const output = captureStdout(t);
-  const options = {
-    root: fixture.root,
-    path: fixture.path,
-    outputFormat: "json" as const,
-    checkSecurity: true,
-    forceSecurityRefactor: true,
-    noCache: true,
-  };
-  const result = await action(options);
+  const result = await actOnFixture(fixture, forceKitOptions);
   const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
   const workspace = readFileSync(fixture.workspace, "utf8");
   assert.equal(manifest.dependencies["@sveltejs/kit"], "^2.70.3");
   assert.doesNotMatch(workspace, /@sveltejs\/kit/);
   assert.match(workspace, /lodash.*4\.17\.21/);
-  assert.deepEqual(
-    parsePnpmWorkspaceOverrides(workspace),
-    Object.assign({}, preservedOverrides, { lodash: "4.17.21" }),
-  );
+  assert.deepEqual(parsePnpmWorkspaceOverrides(workspace), fixedKitOverrides);
   assert.equal(result.securityFixesApplied, false);
   const notice = JSON.parse(output()).securityAlerts.find(
     (alert) => alert.packageName === "@sveltejs/kit",
@@ -556,23 +597,8 @@ test("forceSecurityRefactor reports the SvelteKit migration and still applies a 
 test("interactive approval updates the declared SvelteKit range without a direct override", async (t) => {
   const fixture = createKitFixture(t);
   captureStdout(t);
-  const prompt = t.mock.method(
-    InteractiveSecurityManager.prototype,
-    "promptForSecurityActions",
-    (_alerts, fixes) => {
-      const approved = fixes.map((fix) => Object.assign({}, fix, { approved: true }));
-      return Promise.resolve(approved);
-    },
-  );
-  const options = {
-    root: fixture.root,
-    path: fixture.path,
-    outputFormat: "json" as const,
-    checkSecurity: true,
-    interactive: true,
-    noCache: true,
-  };
-  const result = await action(options);
+  const prompt = approveSecurityFixes(t);
+  const result = await actOnFixture(fixture, interactiveKitOptions);
   const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
   assert.equal(result.success, true, JSON.stringify(result));
   assert.equal(prompt.mock.callCount(), 1, JSON.stringify(result));
@@ -583,7 +609,7 @@ test("interactive approval updates the declared SvelteKit range without a direct
 });
 
 const approveSecurityFixes = (t: TestContext) => {
-  t.mock.method(
+  const prompt = t.mock.method(
     InteractiveSecurityManager.prototype,
     "promptForSecurityActions",
     (_alerts, fixes) => {
@@ -592,6 +618,7 @@ const approveSecurityFixes = (t: TestContext) => {
       return selection;
     },
   );
+  return prompt;
 };
 
 const pinKitParentDependency = (
@@ -616,13 +643,11 @@ const pinKitParentDependency = (
 
 test("a direct update does not report a pinned transitive copy as fixed", async (t) => {
   const fixture = createKitFixture(t);
-  const { root, path, lockPath } = fixture;
+  const { path, lockPath } = fixture;
   captureStdout(t);
   const lock = pinKitParentDependency(lockPath);
   approveSecurityFixes(t);
-  const result = await action({
-    root,
-    path,
+  const result = await actOnFixture(fixture, {
     checkSecurity: true,
     interactive: true,
     noCache: true,
@@ -636,13 +661,11 @@ test("a direct update does not report a pinned transitive copy as fixed", async 
 
 test("a direct update does not report a pinned optional copy as fixed", async (t) => {
   const fixture = createKitFixture(t);
-  const { root, path, lockPath } = fixture;
+  const { path, lockPath } = fixture;
   captureStdout(t);
   const lock = pinKitParentDependency(lockPath, "optionalDependencies");
   approveSecurityFixes(t);
-  const result = await action({
-    root,
-    path,
+  const result = await actOnFixture(fixture, {
     checkSecurity: true,
     interactive: true,
     noCache: true,
@@ -660,9 +683,8 @@ test("declining interactive security fixes preserves all declared versions and e
   t.mock.method(InteractiveSecurityManager.prototype, "promptForSecurityActions", () =>
     Promise.resolve([]),
   );
-  const result = await action({
-    root: fixture.root,
-    path: fixture.path,
+
+  const result = await actOnFixture(fixture, {
     checkSecurity: true,
     interactive: true,
     noCache: true,
@@ -682,17 +704,9 @@ test("dry-run does not write approved direct updates or transitive fixes", async
   captureStdout(t);
   const originalManifest = readFileSync(fixture.path, "utf8");
   const originalWorkspace = readFileSync(fixture.workspace, "utf8");
-  t.mock.method(
-    InteractiveSecurityManager.prototype,
-    "promptForSecurityActions",
-    (_alerts, fixes) => {
-      const approved = fixes.map((fix) => Object.assign({}, fix, { approved: true }));
-      return Promise.resolve(approved);
-    },
-  );
-  const result = await action({
-    root: fixture.root,
-    path: fixture.path,
+  approveSecurityFixes(t);
+
+  const result = await actOnFixture(fixture, {
     checkSecurity: true,
     interactive: true,
     dryRun: true,
@@ -705,122 +719,135 @@ test("dry-run does not write approved direct updates or transitive fixes", async
   assert.equal(result.securityFixesApplied, false);
 });
 
-test("a workspace direct dependency cannot be changed by a root global security override", async (t) => {
+const kitWorkspaceDependencies = { "@sveltejs/kit": "^2.70.3" };
+const kitWorkspaceManifest = {
+  name: "site",
+  version: "1.0.0",
+  devDependencies: kitWorkspaceDependencies,
+};
+
+const createKitWorkspaceFixture = (t: TestContext) => {
   const fixture = createKitFixture(t);
-  captureStdout(t);
   const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
   delete manifest.dependencies["@sveltejs/kit"];
   manifest.workspaces = ["packages/*"];
   writeFileSync(fixture.path, JSON.stringify(manifest));
   const directory = join(fixture.root, "packages", "site");
   mkdirSync(directory, { recursive: true });
-  const workspaceManifest = {
-    name: "site",
-    version: "1.0.0",
-    devDependencies: { "@sveltejs/kit": "^2.70.3" },
-  };
   const path = join(directory, "package.json");
-  writeFileSync(path, JSON.stringify(workspaceManifest));
-  await action({
-    root: fixture.root,
-    path: fixture.path,
-    checkSecurity: true,
-    forceSecurityRefactor: true,
-    noCache: true,
-    outputFormat: "json",
-  });
-  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), workspaceManifest);
+  writeFileSync(path, JSON.stringify(kitWorkspaceManifest));
+  const result = Object.assign({}, fixture, { workspacePath: path });
+  return result;
+};
+
+test("a workspace direct dependency cannot be changed by a root global security override", async (t) => {
+  const fixture = createKitWorkspaceFixture(t);
+  captureStdout(t);
+  await actOnFixture(fixture, forceKitOptions);
+  const manifest = JSON.parse(readFileSync(fixture.workspacePath, "utf8"));
+  assert.deepEqual(manifest, kitWorkspaceManifest);
   assert.doesNotMatch(readFileSync(fixture.workspace, "utf8"), /@sveltejs\/kit/);
 });
 
-["npm", "pnpm"].forEach((manager) => {
-  test(`${manager} doctor emits one JSON document and preserves files`, async (t) => {
-    const fixture = createFixture(t, manager);
-    const output = captureStdout(t);
-    mockScan(t);
-    await run([
-      "node",
-      "pastoralist",
-      "doctor",
-      "--root",
-      fixture.root,
-      "--path",
-      fixture.path,
-      "--outputFormat",
-      "json",
-    ]);
-    const result = JSON.parse(output());
-    assert.equal(result.success, true);
-    assert.equal(result.metrics.packagesScanned, 518);
-    assertUnchanged(fixture);
-  });
+const verifyDoctorJson = async (manager: string, t: TestContext) => {
+  const fixture = createFixture(t, manager);
+  const output = captureStdout(t);
+  mockScan(t);
+  await run([
+    "node",
+    "pastoralist",
+    "doctor",
+    "--root",
+    fixture.root,
+    "--path",
+    fixture.path,
+    "--outputFormat",
+    "json",
+  ]);
+  const result = JSON.parse(output());
+  assert.equal(result.success, true);
+  assert.equal(result.metrics.packagesScanned, 518);
+  assertUnchanged(fixture);
+};
 
+const verifyQuietSecurityJson = async (manager: string, quiet: boolean, t: TestContext) => {
+  const fixture = createFixture(t, manager);
+  const output = captureStdout(t);
+  const exit = t.mock.method(process, "exit", () => undefined as never);
+  mockScan(t, 518, quiet);
+
+  await actOnFixture(fixture, { outputFormat: "json", dryRun: true, quiet, strict: true });
+  const result = JSON.parse(output());
+  assert.equal(result.success, !quiet);
+  assert.equal(result.hasSecurityIssues, quiet);
+  assert.equal(result.metrics.packagesScanned, 518);
+  assert.equal(exit.mock.callCount(), Number(quiet));
+  if (quiet) assert.equal(exit.mock.calls[0].arguments[0], 1);
+  assertUnchanged(fixture);
+};
+
+const verifyScanSummary = async (manager: string, t: TestContext) => {
+  const fixture = createFixture(t, manager);
+  const output = captureStdout(t);
+  mockScan(t);
+
+  const result = await actOnFixture(fixture, { dryRun: true, summary: true });
+  assert.equal(result.metrics?.packagesScanned, 518);
+  assert.match(output(), /No vulnerabilities in 518 packages/);
+  assert.match(output(), /518 packages protected/);
+  assert.match(output(), /518 scanned/);
+  assert.match(output(), /Packages scanned[^\n]*518/);
+  assertUnchanged(fixture);
+};
+
+const verifyFirstCleanupJson = async (manager: string, t: TestContext) => {
+  const fixture = createFixture(t, manager, false);
+  clearHintCache();
+  const output = captureStdout(t);
+
+  await actOnFixture(fixture, { outputFormat: "json", removeUnused: true });
+  const result = JSON.parse(output());
+  assert.equal(result.metrics.packagesScanned, 1);
+  const updated = JSON.parse(readFileSync(fixture.path, "utf8"));
+  assert.ok(JSON.stringify(updated.pastoralist, null, 2).split("\n").length > 10);
+  assert.deepEqual(updated.overrides ?? updated.pnpm?.overrides, { alpha: "1.0.0" });
+  assert.equal(getFullDependencyCount(fixture.root), 1);
+};
+
+const registerQuietScans = (manager: string) => {
   [false, true].forEach((quiet) => {
-    test(`${manager} JSON security scan is clean with quiet=${quiet}`, async (t) => {
-      const fixture = createFixture(t, manager);
-      const output = captureStdout(t);
-      const exit = t.mock.method(process, "exit", () => undefined as never);
-      mockScan(t, 518, quiet);
-      await action({
-        root: fixture.root,
-        path: fixture.path,
-        outputFormat: "json",
-        dryRun: true,
-        quiet,
-        strict: true,
-      });
-      const result = JSON.parse(output());
-      assert.equal(result.success, !quiet);
-      assert.equal(result.hasSecurityIssues, quiet);
-      assert.equal(result.metrics.packagesScanned, 518);
-      assert.equal(exit.mock.callCount(), Number(quiet));
-      if (quiet) assert.equal(exit.mock.calls[0].arguments[0], 1);
-      assertUnchanged(fixture);
-    });
+    test(
+      `${manager} JSON security scan is clean with quiet=${quiet}`,
+      verifyQuietSecurityJson.bind(null, manager, quiet),
+    );
   });
+};
 
-  test(`${manager} summaries agree with the actual security count`, async (t) => {
-    const fixture = createFixture(t, manager);
-    const output = captureStdout(t);
-    mockScan(t);
-    const result = await action({
-      root: fixture.root,
-      path: fixture.path,
-      dryRun: true,
-      summary: true,
-    });
-    assert.equal(result.metrics?.packagesScanned, 518);
-    assert.match(output(), /No vulnerabilities in 518 packages/);
-    assert.match(output(), /518 packages protected/);
-    assert.match(output(), /518 scanned/);
-    assert.match(output(), /Packages scanned[^\n]*518/);
-    assertUnchanged(fixture);
-  });
+["npm", "pnpm"].forEach((manager) => {
+  test(
+    `${manager} doctor emits one JSON document and preserves files`,
+    verifyDoctorJson.bind(null, manager),
+  );
 
-  test(`${manager} first cleanup write emits only JSON and counts the lockfile`, async (t) => {
-    const fixture = createFixture(t, manager, false);
-    clearHintCache();
-    const output = captureStdout(t);
-    await action({
-      root: fixture.root,
-      path: fixture.path,
-      outputFormat: "json",
-      removeUnused: true,
-    });
-    const result = JSON.parse(output());
-    assert.equal(result.metrics.packagesScanned, 1);
-    const updated = JSON.parse(readFileSync(fixture.path, "utf8"));
-    assert.ok(JSON.stringify(updated.pastoralist, null, 2).split("\n").length > 10);
-    assert.deepEqual(updated.overrides ?? updated.pnpm?.overrides, { alpha: "1.0.0" });
-    assert.equal(getFullDependencyCount(fixture.root), 1);
-  });
+  registerQuietScans(manager);
+
+  test(
+    `${manager} summaries agree with the actual security count`,
+    verifyScanSummary.bind(null, manager),
+  );
+
+  test(
+    `${manager} first cleanup write emits only JSON and counts the lockfile`,
+    verifyFirstCleanupJson.bind(null, manager),
+  );
 });
 
 test("a zero-package security scan does not fall back to the lockfile count", async (t) => {
   const fixture = createFixture(t, "npm");
   const output = captureStdout(t);
   mockScan(t, 0);
-  await action({ root: fixture.root, path: fixture.path, outputFormat: "json", dryRun: true });
+
+  await actOnFixture(fixture, { outputFormat: "json", dryRun: true });
   assert.equal(JSON.parse(output()).metrics.packagesScanned, 0);
 });
 
@@ -831,7 +858,8 @@ test("JSON security errors contain no spinner or graph controls", async (t) => {
   t.mock.method(SecurityChecker.prototype, "checkSecurity", () =>
     Promise.reject(new Error("scan failed")),
   );
-  await action({ root: fixture.root, path: fixture.path, outputFormat: "json", dryRun: true });
+
+  await actOnFixture(fixture, { outputFormat: "json", dryRun: true });
   const result = JSON.parse(output());
   assert.equal(result.success, false);
   assert.deepEqual(result.errors, ["scan failed"]);
@@ -853,10 +881,8 @@ permissionModes.forEach((mode) => {
     const exit = t.mock.method(process, "exit", () => undefined as never);
     const error = new SecurityProviderPermissionError("osv", "access denied");
     t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
-    const options = Object.assign(
-      { root: fixture.root, path: fixture.path, dryRun: true, noCache: true },
-      mode,
-    );
+    const { root, path } = fixture;
+    const options = Object.assign({ root, path, dryRun: true, noCache: true }, mode);
     const result = await action(options);
     assert.equal(result.success, false);
     assert.deepEqual(result.errors, [error.message]);
@@ -872,12 +898,8 @@ test("provider permission errors retain the human-mode fallback", async (t) => {
   const exit = t.mock.method(process, "exit", () => undefined as never);
   const error = new SecurityProviderPermissionError("GitHub", "access denied");
   t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
-  const result = await action({
-    root: fixture.root,
-    path: fixture.path,
-    dryRun: true,
-    noCache: true,
-  });
+
+  const result = await actOnFixture(fixture, { dryRun: true, noCache: true });
   assert.equal(result.success, true);
   assert.equal(exit.mock.calls.length, 0);
   assert.match(output(), /access denied/);
@@ -891,7 +913,8 @@ test("library callers can inspect incomplete permission scans", async (t) => {
   t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   const config = JSON.parse(fixture.manifest);
-  const result = await checker.checkSecurity(config, { root: fixture.root });
+  const { root } = fixture;
+  const result = await checker.checkSecurity(config, { root });
   assert.equal(result.complete, false);
   assertUnchanged(fixture);
 });

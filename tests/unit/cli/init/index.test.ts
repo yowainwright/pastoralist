@@ -10,6 +10,7 @@ import * as originalDx from "../../../../src/dx";
 import { resolve } from "path";
 import type { InitOptions, OnboardingDeps } from "../../../../src/cli/init/types";
 import type { PromptChoice } from "../../../../src/cli/prompts/types";
+import type { PastoralistConfig } from "../../../../src/types";
 import {
   safeReadFileSync as readFileSync,
   safeWriteFileSync as writeFileSync,
@@ -28,66 +29,342 @@ const formatCompletionMock = mock(originalDx.formatCompletion);
 const shimmerFrameMock = mock(originalDx.shimmerFrame);
 const formatStepHeaderMock = mock(originalDx.formatStepHeader);
 
+const promptExports = Object.assign({}, originalPrompts, { createPrompt: createPromptMock });
 moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/index"), {
-  namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
+  namedExports: promptExports,
 });
 moduleMock.module(import.meta.resolve("../../../../src/utils/index"), {
   namedExports: originalUtils,
 });
+
+const observabilityExports = Object.assign({}, originalObservability, { logger: loggerMock });
 moduleMock.module(import.meta.resolve("../../../../src/observability/index"), {
-  namedExports: Object.assign({}, originalObservability, { logger: loggerMock }),
+  namedExports: observabilityExports,
 });
+
+const packageExports = Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock });
 moduleMock.module(import.meta.resolve("../../../../src/core/package/index"), {
-  namedExports: Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock }),
+  namedExports: packageExports,
+});
+
+const configExports = Object.assign({}, originalConfig, {
+  loadExternalConfig: loadExternalConfigMock,
 });
 moduleMock.module(import.meta.resolve("../../../../src/config/index"), {
-  namedExports: Object.assign({}, originalConfig, { loadExternalConfig: loadExternalConfigMock }),
+  namedExports: configExports,
+});
+
+const dxExports = Object.assign({}, originalDx, {
+  formatCompletion: formatCompletionMock,
+  shimmerFrame: shimmerFrameMock,
+  formatStepHeader: formatStepHeaderMock,
 });
 moduleMock.module(import.meta.resolve("../../../../src/dx/index"), {
-  namedExports: Object.assign({}, originalDx, {
-    formatCompletion: formatCompletionMock,
-    shimmerFrame: shimmerFrameMock,
-    formatStepHeader: formatStepHeaderMock,
-  }),
+  namedExports: dxExports,
 });
 
 const { initCommand, showOnboarding } = await import("../../../../src/cli/init");
 
 const testPath = resolve(import.meta.dirname, "..", "..", ".test-init-package.json");
-const testRoot = resolve(import.meta.dirname, "..", "..", ".test-init-root");
 
-test("initCommand - should initialize with default options", async () => {
+const testRoot = resolve(import.meta.dirname, "..", "..", ".test-init-root");
+type InitPromptFixture = Pick<originalPrompts.Prompt, "list" | "confirm" | "input">;
+
+const createPromptFixture = (
+  listResponse: InitPromptFixture["list"],
+  confirmResponse: InitPromptFixture["confirm"],
+  inputResponse: InitPromptFixture["input"],
+): InitPromptFixture => {
+  const list = mock(listResponse);
+  const confirm = mock(confirmResponse);
+  const input = mock(inputResponse);
+  const prompt = { list, confirm, input };
+  return prompt;
+};
+
+const installPromptMock = (
+  listResponse: InitPromptFixture["list"] = initializeWithDefaultOptionsList,
+  confirmResponse: InitPromptFixture["confirm"] = initializeWithDefaultOptionsConfirm,
+  inputResponse: InitPromptFixture["input"] = initializeWithDefaultOptionsInput,
+) => {
+  const prompt = createPromptFixture(listResponse, confirmResponse, inputResponse);
+  const spy = createPromptMock.mockImplementation(async (callback) => {
+    const result = callback(prompt as originalPrompts.Prompt);
+    return result;
+  });
+  return spy;
+};
+
+const createMockLog = () => {
+  const debug = mock(() => {});
+  const error = mock(() => {});
+  const warn = mock(() => {});
+  const print = mock(() => {});
+  const line = mock(() => {});
+  const indent = mock(() => {});
+  const item = mock(() => {});
+  const log = { debug, error, warn, print, line, indent, item };
+  return log;
+};
+
+const createLoggerFixture = () => {
+  const mockLog = createMockLog();
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
+  const fixture = { mockLog, loggerSpy };
+  return fixture;
+};
+
+const prepareInitFixture = () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+};
 
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
+const cleanupInitFixture = (loggerSpy: ReturnType<typeof loggerMock.mockReturnValue>) => {
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) unlinkSync(testPath);
+  validateRootPackageJsonIntegrity();
+};
 
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
+const initializeWithDefaultOptionsList = async () => "package.json";
 
+const initializeWithDefaultOptionsConfirm = async () => false;
+
+const initializeWithDefaultOptionsInput = async () => "";
+
+const handleSecurityContextInitializationList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "osv";
+  if (msg.includes("severity")) return "medium";
+  return "back";
+};
+
+const handleWorkspaceContextInitializationList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  return "back";
+};
+
+const handleWorkspaceContextInitializationConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return true;
+  return false;
+};
+
+const saveToPastoralistrcJsonList = async (msg: string) => {
+  if (msg.includes("config location")) return "external";
+  if (msg.includes("config file format")) return ".pastoralistrc.json";
+  return "back";
+};
+
+const promptForOverwriteIfExternalConfigExistsConfirm = async (msg: string) => {
+  if (msg.includes("already exists")) return false;
+  return false;
+};
+
+const configureWorkspaceModeList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("workspace")) return "workspace";
+  return "back";
+};
+
+const configureWorkspaceModeConfirm = async (msg: string) => {
+  if (msg.includes("workspace dependencies")) return true;
+  if (msg.includes("security")) return false;
+  return false;
+};
+
+const configureCustomWorkspacePathsList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("workspace")) return "custom";
+  return "back";
+};
+
+const configureCustomWorkspacePathsInput = async (msg: string) => {
+  if (msg.includes("workspace paths")) return "packages/*, apps/*";
+  return "";
+};
+
+const handleNoWorkspacesDetectedConfirm = async (msg: string) => {
+  if (msg.includes("workspace dependencies")) return true;
+  return false;
+};
+
+const handleNoWorkspacesDetectedInput = async () => "packages/*";
+
+const skipWorkspaceConfigurationWhenDeclinedConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security")) return false;
+  return false;
+};
+
+const configureGitHubSecurityProviderList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "github";
+  if (msg.includes("severity")) return "medium";
+  return "back";
+};
+
+const configureGitHubSecurityProviderConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("interactive mode")) return true;
+  if (msg.includes("API token")) return false;
+  return false;
+};
+
+const configureSnykTokenEnvironmentGuidanceList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "snyk";
+  if (msg.includes("severity")) return "high";
+  return "back";
+};
+
+const configureSnykTokenEnvironmentGuidanceConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("API token")) return true;
+  if (msg.includes("interactive")) return false;
+  if (msg.includes("auto-fix")) return true;
+  return false;
+};
+
+const configureSnykTokenEnvironmentGuidanceInput = async (msg: string) => {
+  if (msg.includes("API token")) return "snyk-token-123";
+  return "";
+};
+
+const configureSocketTokenEnvironmentGuidanceList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "socket";
+  if (msg.includes("severity")) return "critical";
+  return "back";
+};
+
+const configureSocketTokenEnvironmentGuidanceConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("API token")) return true;
+  if (msg.includes("interactive")) return true;
+  return false;
+};
+
+const configureSocketTokenEnvironmentGuidanceInput = async (msg: string) => {
+  if (msg.includes("API token")) return "socket-token-123";
+  return "";
+};
+
+const handleMissingTokenForRequiredProviderList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "snyk";
+  if (msg.includes("severity")) return "medium";
+  return "back";
+};
+
+const handleMissingTokenForRequiredProviderConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("API token")) return false;
+  if (msg.includes("interactive")) return true;
+  return false;
+};
+
+const notCollectTokenInputInput = async (msg: string) => {
+  if (msg.includes("API token")) return "";
+  return "";
+};
+
+const configureWorkspaceSecurityChecksConfirm = async (msg: string) => {
+  if (msg.includes("workspace dependencies")) return true;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("interactive")) return true;
+  if (msg.includes("Scan workspace")) return true;
+  return false;
+};
+
+const configureAutoFixWhenInteractiveIsDisabledList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "osv";
+  if (msg.includes("severity")) return "low";
+  return "back";
+};
+
+const configureAutoFixWhenInteractiveIsDisabledConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return false;
+  if (msg.includes("security vulnerability")) return true;
+  if (msg.includes("interactive")) return false;
+  if (msg.includes("auto-fix")) return true;
+  return false;
+};
+
+const detectExistingConfigInPackageJsonConfirm = async (msg: string) => {
+  if (msg.includes("Existing")) return true;
+  return false;
+};
+
+const cancelWhenUserDeclinesOverwriteConfirm = async (msg: string) => {
+  if (msg.includes("Existing")) return false;
+  return false;
+};
+
+const useSecurityContextWithProviderOptionList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("severity")) return "medium";
+  return "back";
+};
+
+const useSecurityContextWithProviderOptionConfirm = async (msg: string) => {
+  if (msg.includes("API token")) return false;
+  if (msg.includes("interactive")) return true;
+  return false;
+};
+
+const handleSecurityContextWithWorkspaceChecksConfirm = async (msg: string) => {
+  if (msg.includes("workspace")) return true;
+  if (msg.includes("interactive")) return true;
+  if (msg.includes("Scan workspace")) return true;
+  return false;
+};
+
+const createCompleteConfigWithAllFeaturesEnabledList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("workspace")) return "workspace";
+  if (msg.includes("security provider")) return "github";
+  if (msg.includes("severity")) return "critical";
+  return "back";
+};
+
+const handleSnykProviderTokenInfoConfirm = async (msg: string) => {
+  if (msg.includes("token")) return false;
+  return false;
+};
+
+const handleSocketProviderTokenInfoList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "socket";
+  if (msg.includes("severity")) return "medium";
+  return "back";
+};
+
+const continueWhenTokenEnvironmentIsConfirmedConfirm = async (msg: string) => {
+  if (msg.includes("token")) return true;
+  return false;
+};
+
+const ignoreRawTokenInputMocksInput = async () => "ghp_test_token_12345";
+
+const enhancedUIWithSecurityEnabledShowsCorrectNextStepsList = async (msg: string) => {
+  if (msg.includes("config location")) return "package.json";
+  if (msg.includes("security provider")) return "github";
+  return "back";
+};
+
+const enhancedUIWithSecurityEnabledShowsCorrectNextStepsConfirm = async () => true;
+
+test("initCommand - should initialize with default options", async () => {
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock();
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("interactive onboarding offers three paths and uses the existing config wizard", async () => {
@@ -177,123 +454,45 @@ async function captureOnboarding(deps: OnboardingDeps, options: InitOptions = {}
 }
 
 test("initCommand - should handle security context initialization", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("osv");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleSecurityContextInitializationList,
+    initializeWithDefaultOptionsConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle workspace context initialization", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleWorkspaceContextInitializationList,
+    handleWorkspaceContextInitializationConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({
     path: testPath,
     hasWorkspaceSecurityChecks: true,
     isTesting: true,
   });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should save to package.json", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock();
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
-test("initCommand - should resolve relative package path under root", async () => {
+const prepareRootedInitFixture = () => {
   validateRootPackageJsonIntegrity();
   if (existsSync(testRoot)) {
     rmSync(testRoot, { recursive: true, force: true });
@@ -301,1272 +500,447 @@ test("initCommand - should resolve relative package path under root", async () =
   mkdirSync(testRoot, { recursive: true });
   const packagePath = resolve(testRoot, "package.json");
   writeFileSync(packagePath, JSON.stringify({ name: "rooted" }, null, 2));
+  return packagePath;
+};
 
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
+const cleanupRootedInitFixture = () => {
+  if (existsSync(testRoot)) rmSync(testRoot, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+};
 
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+test("initCommand - should resolve relative package path under root", async () => {
+  const packagePath = prepareRootedInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock();
   await initCommand({ path: "package.json", root: testRoot });
-
   const updated = JSON.parse(readFileSync(packagePath, "utf8"));
   assert.strictEqual(updated.name, "rooted");
   assert.deepStrictEqual(updated.pastoralist, {});
-
   createPromptSpy?.mockRestore();
   loggerSpy?.mockRestore();
-  if (existsSync(testRoot)) {
-    rmSync(testRoot, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupRootedInitFixture();
 });
 
 test("initCommand - should save to .pastoralistrc.json", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("external");
-        if (msg.includes("config file format")) return Promise.resolve(".pastoralistrc.json");
-        return Promise.resolve("back");
-      }),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    saveToPastoralistrcJsonList,
+    initializeWithDefaultOptionsConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should prompt for overwrite if external config exists", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+  prepareInitFixture();
   const configPath = resolve(process.cwd(), ".pastoralistrc.json");
   writeFileSync(configPath, JSON.stringify({ depPaths: "workspace" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("external");
-        if (msg.includes("config file format")) return Promise.resolve(".pastoralistrc.json");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("already exists")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    saveToPastoralistrcJsonList,
+    promptForOverwriteIfExternalConfigExistsConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   if (existsSync(configPath)) unlinkSync(configPath);
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure workspace mode", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("workspace")) return Promise.resolve("workspace");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
-        if (msg.includes("security")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureWorkspaceModeList,
+    configureWorkspaceModeConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const workspaces = ["packages/*"];
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    workspaces: ["packages/*"],
+    workspaces,
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure custom workspace paths", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("workspace")) return Promise.resolve("custom");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
-        if (msg.includes("security")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock((msg: string) => {
-        if (msg.includes("workspace paths")) return Promise.resolve("packages/*, apps/*");
-        return Promise.resolve("");
-      }),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureCustomWorkspacePathsList,
+    configureWorkspaceModeConfirm,
+    configureCustomWorkspacePathsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle no workspaces detected", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("workspace")) return Promise.resolve("custom");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("packages/*")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureCustomWorkspacePathsList,
+    handleNoWorkspacesDetectedConfirm,
+    handleNoWorkspacesDetectedInput,
+  );
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should skip workspace configuration when declined", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    initializeWithDefaultOptionsList,
+    skipWorkspaceConfigurationWhenDeclinedConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure GitHub security provider", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("github");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("interactive mode")) return Promise.resolve(true);
-        if (msg.includes("API token")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureGitHubSecurityProviderList,
+    configureGitHubSecurityProviderConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure Snyk token environment guidance", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("snyk");
-        if (msg.includes("severity")) return Promise.resolve("high");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("API token")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(false);
-        if (msg.includes("auto-fix")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock((msg: string) => {
-        if (msg.includes("API token")) return Promise.resolve("snyk-token-123");
-        return Promise.resolve("");
-      }),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureSnykTokenEnvironmentGuidanceList,
+    configureSnykTokenEnvironmentGuidanceConfirm,
+    configureSnykTokenEnvironmentGuidanceInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure Socket token environment guidance", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("socket");
-        if (msg.includes("severity")) return Promise.resolve("critical");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("API token")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock((msg: string) => {
-        if (msg.includes("API token")) return Promise.resolve("socket-token-123");
-        return Promise.resolve("");
-      }),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureSocketTokenEnvironmentGuidanceList,
+    configureSocketTokenEnvironmentGuidanceConfirm,
+    configureSocketTokenEnvironmentGuidanceInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle missing token for required provider", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("snyk");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("API token")) return Promise.resolve(false);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleMissingTokenForRequiredProviderList,
+    handleMissingTokenForRequiredProviderConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should not collect token input", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("snyk");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("API token")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock((msg: string) => {
-        if (msg.includes("API token")) return Promise.resolve("");
-        return Promise.resolve("");
-      }),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleMissingTokenForRequiredProviderList,
+    configureSocketTokenEnvironmentGuidanceConfirm,
+    notCollectTokenInputInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure workspace security checks", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("osv");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        if (msg.includes("Scan workspace")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleSecurityContextInitializationList,
+    configureWorkspaceSecurityChecksConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const workspaces = ["packages/*"];
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    workspaces: ["packages/*"],
+    workspaces,
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should configure auto-fix when interactive is disabled", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("osv");
-        if (msg.includes("severity")) return Promise.resolve("low");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(false);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(false);
-        if (msg.includes("auto-fix")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureAutoFixWhenInteractiveIsDisabledList,
+    configureAutoFixWhenInteractiveIsDisabledConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should detect existing config in package.json", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock((msg: string) => {
-        if (msg.includes("Existing")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    initializeWithDefaultOptionsList,
+    detectExistingConfigInPackageJsonConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const pastoralist: PastoralistConfig = { depPaths: "workspace" };
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    pastoralist: { depPaths: "workspace" },
+    pastoralist,
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should cancel when user declines overwrite", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock((msg: string) => {
-        if (msg.includes("Existing")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    initializeWithDefaultOptionsList,
+    cancelWhenUserDeclinesOverwriteConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const pastoralist: PastoralistConfig = { depPaths: "workspace" };
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    pastoralist: { depPaths: "workspace" },
+    pastoralist,
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should detect external config file", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
   const loadExternalConfigSpy = loadExternalConfigMock.mockResolvedValue({
     depPaths: "workspace",
   });
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock((msg: string) => {
-        if (msg.includes("Existing")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  const createPromptSpy = installPromptMock(
+    initializeWithDefaultOptionsList,
+    detectExistingConfigInPackageJsonConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   loadExternalConfigSpy.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should use security context with provider option", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("API token")) return Promise.resolve(false);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    useSecurityContextWithProviderOptionList,
+    useSecurityContextWithProviderOptionConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({
     path: testPath,
     securityProvider: "github",
     isTesting: true,
   });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
+const workspaceSecurityOptions: InitOptions = {
+  path: testPath,
+  checkSecurity: true,
+  hasWorkspaceSecurityChecks: true,
+  isTesting: true,
+};
+
 test("initCommand - should handle security context with workspace checks", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("osv");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        if (msg.includes("Scan workspace")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleSecurityContextInitializationList,
+    handleSecurityContextWithWorkspaceChecksConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const workspaces = ["packages/*"];
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    workspaces: ["packages/*"],
+    workspaces,
   });
-
-  await initCommand({
-    path: testPath,
-    checkSecurity: true,
-    hasWorkspaceSecurityChecks: true,
-    isTesting: true,
-  });
+  await initCommand(workspaceSecurityOptions);
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should create complete config with all features enabled", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("workspace")) return Promise.resolve("workspace");
-        if (msg.includes("security provider")) return Promise.resolve("github");
-        if (msg.includes("severity")) return Promise.resolve("critical");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
-        if (msg.includes("security vulnerability")) return Promise.resolve(true);
-        if (msg.includes("interactive")) return Promise.resolve(true);
-        if (msg.includes("Scan workspace")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    createCompleteConfigWithAllFeaturesEnabledList,
+    configureWorkspaceSecurityChecksConfirm,
+    initializeWithDefaultOptionsInput,
+  );
+  const workspaces = ["packages/*", "apps/*"];
   const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
-    workspaces: ["packages/*", "apps/*"],
+    workspaces,
   });
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should create minimal config", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock();
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle missing package.json gracefully", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock();
   const mockResolveJSON = resolveJSONMock.mockReturnValue(null);
-
   await initCommand({ path: testPath, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
   mockResolveJSON.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle snyk provider token info", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("snyk");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("token")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleMissingTokenForRequiredProviderList,
+    handleSnykProviderTokenInfoConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should handle socket provider token info", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("socket");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("token")) return Promise.resolve(false);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    handleSocketProviderTokenInfoList,
+    handleSnykProviderTokenInfoConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should continue when token environment is confirmed", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("github");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("token")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureGitHubSecurityProviderList,
+    continueWhenTokenEnvironmentIsConfirmedConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - should ignore raw token input mocks", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("github");
-        if (msg.includes("severity")) return Promise.resolve("medium");
-        return Promise.resolve("back");
-      }),
-      confirm: mock((msg: string) => {
-        if (msg.includes("token")) return Promise.resolve(true);
-        return Promise.resolve(false);
-      }),
-      input: mock(() => Promise.resolve("ghp_test_token_12345")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    configureGitHubSecurityProviderList,
+    continueWhenTokenEnvironmentIsConfirmedConfirm,
+    ignoreRawTokenInputMocksInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
+const assertCompletionOutput = (mockLog: ReturnType<typeof createMockLog>) => {
+  assert.equal(formatCompletionMock.mock.callCount(), 1);
+  const [title, steps, shimmerTitle] = formatCompletionMock.mock.calls[0].arguments;
+  assert.equal(title, "Pastoralist initialization complete!");
+  assert.equal(steps.length, 2);
+  assert.match(shimmerTitle, /^shimmered text/);
+  assert.deepEqual(shimmerFrameMock.mock.calls[0].arguments, [title, 0]);
+  const formatted = originalDx.formatCompletion(title, steps, shimmerTitle);
+  assert.ok(mockLog.print.mock.calls.some(({ arguments: args }) => args[0] === formatted));
+};
+
 test("initCommand - enhanced UI integration with formatCompletion", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const formatCompletionSpy = formatCompletionMock;
+  prepareInitFixture();
+  const { mockLog, loggerSpy } = createLoggerFixture();
   const shimmerFrameSpy = shimmerFrameMock.mockReturnValue("shimmered text");
-
-  createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
-  formatCompletionSpy.mockClear();
+  installPromptMock();
+  formatCompletionMock.mockClear();
   shimmerFrameSpy.mockClear();
   loadExternalConfigMock.mockResolvedValue(null);
   resolveJSONMock.mockReturnValue({ name: "test" });
   await initCommand({ path: testPath, isTesting: true });
-
-  assert.equal(formatCompletionSpy.mock.callCount(), 1);
-  const [title, steps, shimmerTitle] = formatCompletionSpy.mock.calls[0].arguments;
-  assert.equal(title, "Pastoralist initialization complete!");
-  assert.equal(steps.length, 2);
-  assert.match(shimmerTitle, /^shimmered text/);
-  assert.deepEqual(shimmerFrameSpy.mock.calls[0].arguments, [title, 0]);
-  const formatted = originalDx.formatCompletion(title, steps, shimmerTitle);
-  assert.ok(mockLog.print.mock.calls.some(({ arguments: args }) => args[0] === formatted));
-
-  formatCompletionSpy.mockRestore();
+  assertCompletionOutput(mockLog);
+  formatCompletionMock.mockRestore();
   shimmerFrameSpy.mockRestore();
   loadExternalConfigMock.mockRestore();
   resolveJSONMock.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
 test("initCommand - enhanced UI with security enabled shows correct next steps", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock((msg: string) => {
-        if (msg.includes("config location")) return Promise.resolve("package.json");
-        if (msg.includes("security provider")) return Promise.resolve("github");
-        return Promise.resolve("back");
-      }),
-      confirm: mock(() => Promise.resolve(true)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
+  prepareInitFixture();
+  const { loggerSpy } = createLoggerFixture();
+  const createPromptSpy = installPromptMock(
+    enhancedUIWithSecurityEnabledShowsCorrectNextStepsList,
+    enhancedUIWithSecurityEnabledShowsCorrectNextStepsConfirm,
+    initializeWithDefaultOptionsInput,
+  );
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-
   assert.ok(createPromptSpy.mock.callCount() > 0);
-
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });
 
-test("initCommand - prints formatted configuration step headers", async () => {
-  validateRootPackageJsonIntegrity();
-  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
-
-  const mockLog = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    print: mock(() => {}),
-    line: mock(() => {}),
-    indent: mock(() => {}),
-    item: mock(() => {}),
-  };
-  const loggerSpy = loggerMock.mockReturnValue(mockLog);
-
-  createPromptMock.mockImplementation(async (callback) => {
-    const mockPrompt = {
-      list: mock(() => Promise.resolve("package.json")),
-      confirm: mock(() => Promise.resolve(false)),
-      input: mock(() => Promise.resolve("")),
-    };
-    return callback(mockPrompt);
-  });
-
-  formatStepHeaderMock.mockClear();
-  loadExternalConfigMock.mockResolvedValue(null);
-  resolveJSONMock.mockReturnValue({ name: "test" });
-  await initCommand({ path: testPath, isTesting: true });
-
+const assertConfigurationHeaders = (mockLog: ReturnType<typeof createMockLog>) => {
   assert.deepEqual(
     formatStepHeaderMock.mock.calls.map(({ arguments: args }) => args),
     [
@@ -1577,12 +951,18 @@ test("initCommand - prints formatted configuration step headers", async () => {
   );
   const header = originalDx.formatStepHeader(1, "Configuration Location");
   assert.ok(mockLog.print.mock.calls.some(({ arguments: args }) => args[0] === header));
+};
 
+test("initCommand - prints formatted configuration step headers", async () => {
+  prepareInitFixture();
+  const { mockLog, loggerSpy } = createLoggerFixture();
+  installPromptMock();
+  formatStepHeaderMock.mockClear();
+  loadExternalConfigMock.mockResolvedValue(null);
+  resolveJSONMock.mockReturnValue({ name: "test" });
+  await initCommand({ path: testPath, isTesting: true });
+  assertConfigurationHeaders(mockLog);
   loadExternalConfigMock.mockRestore();
   resolveJSONMock.mockRestore();
-  loggerSpy?.mockRestore();
-  if (existsSync(testPath)) {
-    unlinkSync(testPath);
-  }
-  validateRootPackageJsonIntegrity();
+  cleanupInitFixture(loggerSpy);
 });

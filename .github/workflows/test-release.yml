@@ -19,7 +19,7 @@ jobs:
   test-published-release:
     if: >-
       github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
 
     steps:
@@ -146,6 +146,16 @@ jobs:
 
             echo '✅ All tests completed successfully!'
           "
+
+      - name: Smoke test the published npm CLI with uv
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          docker build --target python-smoke -f tests/e2e/Dockerfile.python -t pastoralist-uv-smoke .
+          docker run --rm -e VERSION pastoralist-uv-smoke bash -euc '
+            npm install --global --ignore-scripts "pastoralist@$VERSION"
+            PASTORALIST_CLI=pastoralist bash /app/test.sh
+          '
 
       - name: Test with Different Package Managers
         env:

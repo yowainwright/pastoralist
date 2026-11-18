@@ -59,18 +59,21 @@ export const uvSettings = (document: Record<string, unknown>): Record<string, un
   return settings;
 };
 
-export const readUvManifest = (path: string): DependencyManifest & { version: string } => {
-  const document = readUvToml(path);
+export const readUvManifest = (
+  path: string,
+  document: Record<string, unknown>,
+): DependencyManifest & { version: string } => {
   const project = uvTable(document.project);
   const settings = uvSettings(document);
+  if (settings.workspace !== undefined)
+    throw new Error("uv workspace tracking is not supported yet; select a standalone project");
   const requirements = uvStrings(project.dependencies).concat(
     groupRequirements(project["optional-dependencies"]),
     groupRequirements(document["dependency-groups"]),
     uvStrings(settings["dev-dependencies"]),
   );
   const dependencies = Object.fromEntries(requirements.map(uvRequirement));
-  const projectName = getStringField(project, "name") ?? "root";
-  const name = normalizeUvName(projectName);
+  const name = normalizeUvName(getStringField(project, "name") ?? "root");
   const version = getStringField(project, "version") ?? "";
   const manifestPath = resolve(path);
   const manifest = { path: manifestPath, name, version, dependencies };
@@ -85,14 +88,4 @@ export const readUvOverrides = (document: Record<string, unknown>): Record<strin
   const hasDuplicates = entries.length !== Object.keys(overrides).length;
   if (hasDuplicates) throw new Error("Multiple uv overrides for one package are not supported yet");
   return overrides;
-};
-
-export const readUvManifests = (path: string) => {
-  const document = readUvToml(path);
-  const workspace = uvSettings(document).workspace;
-  if (workspace !== undefined)
-    throw new Error("uv workspace tracking is not supported yet; select a standalone project");
-  const manifest = readUvManifest(path);
-  const manifests = [manifest];
-  return manifests;
 };

@@ -432,8 +432,9 @@ const resolveCliManifestPath = (options: Options): string => {
     return path;
   }
   const root = options.root || process.cwd();
-  const isUv = detectUvProject(root);
-  const isMixed = isUv && existsSync(resolve(root, "package.json"));
+  const hasJavaScriptManifest = existsSync(resolve(root, "package.json"));
+  const isUv = detectUvProject(root, hasJavaScriptManifest);
+  const isMixed = isUv && hasJavaScriptManifest;
   if (isMixed)
     throw new Error(
       "Multiple ecosystems detected; select --path pyproject.toml or --path package.json",

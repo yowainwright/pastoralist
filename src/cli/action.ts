@@ -184,24 +184,30 @@ const runUpdateWorkflow = async (
 };
 
 const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): PastoralistResult => {
-  const { removalVerification } = workflow.mergedOptions;
-  const { bestCase } = workflow.securityPhase;
-  const { metrics } = workflow.updateContext;
+  const { mergedOptions, securityPhase, updateContext, updateResultData } = workflow;
+  const { removalVerification } = mergedOptions;
+  const { bestCase, securityResult } = securityPhase;
+  const { metrics } = updateContext;
+  const dependencyDiagnostics = getDependencyDiagnostics(mergedOptions);
   const hasSecurityFixes = hasAppliedSecurityFixes(workflow);
-  const securityFixesApplied = workflow.updateResultData.updated && hasSecurityFixes;
-  const result = Object.assign(
-    {},
-    runtime.emptyResult,
-    workflow.securityPhase.securityResult,
-    workflow.updateResultData,
-    {
-      removalVerification,
-      bestCase,
-      metrics,
-      securityFixesApplied,
-    },
-  );
+  const securityFixesApplied = updateResultData.updated && hasSecurityFixes;
+  const details = {
+    removalVerification,
+    dependencyDiagnostics,
+    bestCase,
+    metrics,
+    securityFixesApplied,
+  };
+  const result = Object.assign({}, runtime.emptyResult, securityResult, updateResultData, details);
   return result;
+};
+
+const getDependencyDiagnostics = ({ nativeProject }: Options) => {
+  if (!nativeProject) return undefined;
+  const diagnostics = Object.values(nativeProject.tracking).flatMap(({ diagnostic }) =>
+    diagnostic ? [diagnostic] : [],
+  );
+  return diagnostics;
 };
 
 const finishActionResult = async (

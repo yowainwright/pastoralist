@@ -1,5 +1,6 @@
 import type { SecurityAlert, SecurityProviderType } from "./core/security/types";
 import type { Logger } from "./observability/types";
+import type { DependencyDiagnostic } from "./core/dep-tracker/types";
 
 export type OverrideValue = string | Record<string, string>;
 export type PackageJsonWorkspaces = string[] | { packages?: string[] };
@@ -371,6 +372,7 @@ export interface PastoralistResult {
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
+  dependencyDiagnostics?: DependencyDiagnostic[];
   removalVerification?: RemovalVerification;
   bestCase?: {
     selectedState: Record<string, string>;

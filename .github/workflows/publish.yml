@@ -4,19 +4,52 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  publish:
-    runs-on: macos-latest
-    environment: npm-publish
+  release-preflight:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     permissions:
-      id-token: write
-      contents: write
-      attestations: write
+      contents: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
+      - name: Check Sourcery reviews since the previous npm release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const script = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/release/preflight.ts`);
+            const { checkRelease, SOURCERY_REVIEW_NAME } = await import(script.href);
+            const pullRequests = (commit_sha) => github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit, { ...context.repo, commit_sha });
+            const checkRuns = (ref) => github.paginate(github.rest.checks.listForRef, {
+              ...context.repo, ref, check_name: SOURCERY_REVIEW_NAME, filter: 'all'
+            });
+            const { baseline, reviews } = await checkRelease({ pullRequests, checkRuns });
+            const rows = reviews.map(({ sha, pullUrl, conclusion }) =>
+              `- ${pullUrl ? `[Pull request](${pullUrl})` : sha} · ${conclusion}`);
+            await core.summary.addHeading(`Sourcery reviews since ${baseline}`).addRaw(rows.join('\n'), true).write();
+            if (reviews.every(({ conclusion }) => conclusion === 'success')) return;
+            const message = 'Sourcery preflight found commits without a successful review';
+            if (context.eventName === 'push') core.setFailed(message);
+            else core.warning(message);
+
+  pack-release:
+    needs: release-preflight
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -28,7 +61,6 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 26
-          registry-url: "https://registry.npmjs.org"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -48,6 +80,57 @@ jobs:
 
       - run: pnpm run build-dist
 
+      - name: Pack npm tarball
+        id: pack
+        run: |
+          npm pack --ignore-scripts --json > npm-pack.json
+          TARBALL="$(node -e "const fs = require('node:fs'); const text = fs.readFileSync('npm-pack.json', 'utf8'); const start = text.indexOf('['); if (start < 0) throw new Error('npm pack JSON output not found'); const [pkg] = JSON.parse(text.slice(start)); console.log(pkg.filename)")"
+          test -n "$TARBALL"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test the packed npm CLI with uv
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          docker build --target python-smoke -f tests/e2e/Dockerfile.python -t pastoralist-uv-smoke .
+          docker run --rm \
+            --mount "type=bind,source=$PWD/$TARBALL,target=/app/candidate.tgz,readonly" \
+            pastoralist-uv-smoke bash -euc '
+              npm install --global --ignore-scripts /app/candidate.tgz
+              PASTORALIST_CLI=pastoralist bash /app/test.sh
+            '
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-release-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+
+  publish:
+    needs: [release-preflight, pack-release]
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: macos-latest
+    environment: npm-publish
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    env:
+      TARBALL: ${{ needs.pack-release.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 26
+          registry-url: "https://registry.npmjs.org"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: npm-release-tarball
+
       - name: Resolve npm dist-tag
         id: dist-tag
         env:
@@ -59,24 +142,15 @@ jobs:
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Pack npm tarball
-        id: pack
-        run: |
-          npm pack --ignore-scripts --json > npm-pack.json
-          TARBALL="$(node -e "const fs = require('node:fs'); const text = fs.readFileSync('npm-pack.json', 'utf8'); const start = text.indexOf('['); if (start < 0) throw new Error('npm pack JSON output not found'); const [pkg] = JSON.parse(text.slice(start)); console.log(pkg.filename)")"
-          test -n "$TARBALL"
-          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
-
       - name: Attest npm tarball
         id: attest
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
-          subject-path: ${{ steps.pack.outputs.tarball }}
+          subject-path: ${{ env.TARBALL }}
 
       - name: Prepare release attestation
         id: release-attestation
         env:
-          TARBALL: ${{ steps.pack.outputs.tarball }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
           SIGSTORE_BUNDLE="$TARBALL.sigstore.json"
@@ -86,7 +160,6 @@ jobs:
       - name: Publish npm package
         env:
           PACKAGE_VERSION: ${{ github.ref_name }}
-          TARBALL: ${{ steps.pack.outputs.tarball }}
           DIST_TAG: ${{ steps.dist-tag.outputs.tag }}
         run: |
           VERSION="${PACKAGE_VERSION#v}"
@@ -101,7 +174,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SIGSTORE_BUNDLE: ${{ steps.release-attestation.outputs.sigstore_bundle }}
-          TARBALL: ${{ steps.pack.outputs.tarball }}
           VERSION: ${{ github.ref_name }}
         run: |
           RELEASE_ARGS=()

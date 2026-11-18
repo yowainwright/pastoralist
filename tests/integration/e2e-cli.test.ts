@@ -110,7 +110,7 @@ test("uv: repeat runs preserve manual reasons and keep flags", async (t) => {
   const fixture = createUvFixture();
   const ledger = { addedDate: "2026-11-15", reason: "Pinned for API compatibility", keep: true };
   const dependents = {};
-  const entry = { dependents, ledger };
+  const entry = { ecosystem: "PyPI", dependents, ledger };
   const appendix = { "urllib3@==2.8.0": entry };
   const config = { appendix, compactAppendix: false };
   writeFileSync(fixture.configPath, JSON.stringify(config));
@@ -332,6 +332,29 @@ test("uv: tracking preserves unrelated manual ledger entries", async (t) => {
   assert.strictEqual(second.updated, false);
 });
 
+const npmCves = ["CVE-2024-0001"];
+const npmLedger = {
+  addedDate: "2026-11-15",
+  cves: npmCves,
+  keep: true,
+  potentiallyFixedIn: "2.0.0",
+};
+
+test("uv: tracking preserves npm ledger metadata and excludes npm from unused counts", async (t) => {
+  const fixture = createUvFixture();
+  const dependents = { app: "alpha (unused override)" };
+  const unusedEntry = { dependents };
+  const keptEntry = { ledger: npmLedger };
+  const appendix = { "alpha@1.0.1": unusedEntry, "beta@1.0.0": keptEntry };
+  writeFileSync(fixture.configPath, JSON.stringify({ appendix, compactAppendix: true }));
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, true, result.errors.join("\n"));
+  const written = JSON.parse(readFileSync(fixture.configPath, "utf8"));
+  assert.deepStrictEqual(written.appendix["alpha@1.0.1"], unusedEntry);
+  assert.deepStrictEqual(written.appendix["beta@1.0.0"], keptEntry);
+  assert.deepStrictEqual(result.unusedOverrides, []);
+});
+
 test("uv: selecting the JavaScript manifest preserves Python ledger entries", async (t) => {
   const fixture = createUvFixture();
   const { path } = fixture;
@@ -447,6 +470,34 @@ test("uv: an ecosystem key collision fails before changing the ledger", async (t
   assert.match(result.errors.join("\n"), /belongs to another ecosystem/);
   assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
   assertUvFilesUnchanged(fixture);
+});
+
+test("uv: a collision preserves an untagged npm entry", async (t) => {
+  const fixture = createUvFixture();
+  const manifest = fixture.manifest.replace("urllib3==2.8.0", "urllib3>=2.8.0");
+  const config = '{"appendix":{"urllib3@>=2.8.0":{"addedDate":"2026-11-15"}}}';
+  writeFileSync(fixture.path, manifest);
+  writeFileSync(fixture.configPath, config);
+  const result = await runUvFixture(t, fixture.root);
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /separate appendixSource/);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
+});
+
+test("uv: a JavaScript override path cannot replace a Python ledger entry", async (t) => {
+  const fixture = createUvFixture();
+  const entry = { ecosystem: "PyPI", addedDate: "2026-11-15" };
+  const appendix = { "urllib3@==2.8.0": entry };
+  const dependents = { nested: "urllib3" };
+  const pathEntry = { dependents };
+  const pathAppendix = { "urllib3@==2.8.0": pathEntry };
+  const overridePaths = { nested: pathAppendix };
+  const config = JSON.stringify({ appendix, overridePaths });
+  writeFileSync(fixture.configPath, config);
+  const result = await runMixedJsFixture(t, fixture.root, { alpha: "1.0.1" });
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /separate appendixSource/);
+  assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
 });
 
 [false, true].forEach((compactAppendix) => {

@@ -54,7 +54,13 @@ jobs:
             echo "Invalid version: $VERSION" >&2
             exit 1
           fi
+          IFS=. read -r MAJOR MINOR _ <<< "$VERSION"
+          UV_SUPPORTED=false
+          if (( 10#$MAJOR > 1 || (10#$MAJOR == 1 && 10#$MINOR >= 15) )); then
+            UV_SUPPORTED=true
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "uv_supported=$UV_SUPPORTED" >> "$GITHUB_OUTPUT"
           echo "Testing pastoralist version: $VERSION"
 
       - name: Wait for NPM Package Availability
@@ -148,6 +154,7 @@ jobs:
           "
 
       - name: Smoke test the published npm CLI with uv
+        if: steps.version.outputs.uv_supported == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |

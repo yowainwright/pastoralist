@@ -1,8 +1,10 @@
 import { assertExcludesText, assertContainsText } from "../../unit/scripts/utils";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { findReleaseRange, reviewCommit } from "../../../scripts/release/preflight";
 
 const cases = [
@@ -118,7 +120,9 @@ const cases = [
     name: "runs the installed uv smoke for published versions and excludes preflight runs",
     run: () => {
       const workflow = readWorkflow("test-release.yml");
+      const [, smokeTest] = workflow.split("- name: Smoke test the published npm CLI with uv");
       assertContainsText(workflow, "github.event.workflow_run.event == 'push'");
+      assertContainsText(smokeTest, "if: steps.version.outputs.uv_supported == 'true'");
       assertContainsText(workflow, 'npm install --global --ignore-scripts "pastoralist@$VERSION"');
       assertContainsText(workflow, "PASTORALIST_CLI=pastoralist bash /app/test.sh");
     },
@@ -213,6 +217,29 @@ const readWorkflow = (name: string): string =>
 
 describe("release workflows", () => {
   cases.forEach(({ name, run }) => test(name, run));
+});
+
+const publishedVersionCases = [
+  ["v1.14.2", "false"],
+  ["v1.15.0-beta.0", "true"],
+  ["2.0.0", "true"],
+] as const;
+
+publishedVersionCases.forEach(([version, supportsUv]) => {
+  test(`published release ${version} enables uv smoke: ${supportsUv}`, (t) => {
+    const workflow = readWorkflow("test-release.yml");
+    const [, versionStep] = workflow.split("id: version\n");
+    const [step] = versionStep.split("- name: Wait for NPM Package Availability");
+    const [, script] = step.split("run: |\n");
+    const root = mkdtempSync(join(tmpdir(), "release-version-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const outputPath = join(root, "output");
+    const env = { BASH_ENV: "/dev/null", INPUT_VERSION: version, GITHUB_OUTPUT: outputPath };
+    execFileSync("bash", ["-e", "-c", script], { env });
+    const output = readFileSync(outputPath, "utf8");
+    const outputs = output.trim().split("\n");
+    assert.ok(outputs.includes(`uv_supported=${supportsUv}`), output);
+  });
 });
 
 const main = { ref: "main" };

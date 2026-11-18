@@ -358,17 +358,11 @@ const mergeWorkspaceAppendix = (ctx: UpdateContext, appendix: Appendix): Appendi
   return mergedAppendix;
 };
 
-const partitionEcosystemAppendix = (
-  existing: Appendix,
-  fresh: Appendix,
-  ecosystem: AppendixItem["ecosystem"],
-) => {
+const partitionEcosystemAppendix = (existing: Appendix, ecosystem: AppendixItem["ecosystem"]) => {
   const selected: Appendix = {};
   const foreign: Appendix = {};
   Object.entries(existing).forEach(([key, item]) => {
-    const matchesLegacy = ecosystem === "npm" || Boolean(fresh[key]);
-    const isLegacy = !item.ecosystem && matchesLegacy;
-    const isSelected = item.ecosystem === ecosystem || isLegacy;
+    const isSelected = (item.ecosystem ?? "npm") === ecosystem;
     const target = isSelected ? selected : foreign;
     target[key] = item;
   });
@@ -377,29 +371,42 @@ const partitionEcosystemAppendix = (
 };
 
 const hasSharedAppendix = (ctx: UpdateContext): boolean => {
-  if (ctx.options.appendixEcosystem) return true;
+  const hasEcosystem = ctx.options.appendixEcosystem || ctx.options.nativeProject;
+  if (hasEcosystem) return true;
   const appendix = ctx.config?.pastoralist?.appendix ?? {};
   const hasPythonRecords = Object.values(appendix).some((item) => item.ecosystem === "PyPI");
   return hasPythonRecords;
 };
 
-const refreshEcosystemAppendix = (ctx: UpdateContext, fresh: Appendix): Appendix => {
-  const existing = ctx.existingAppendix || {};
-  const ecosystem = ctx.options.appendixEcosystem ?? "npm";
-  if (!hasSharedAppendix(ctx)) {
-    const refreshed = carryExistingLedgers(fresh, existing);
-    return refreshed;
+const tagAppendix = (appendix: Appendix, ecosystem: AppendixItem["ecosystem"]): Appendix => {
+  const entries = Object.entries(appendix).map(([key, item]) => {
+    const tagged = Object.assign({}, item, { ecosystem });
+    const entry = [key, tagged] as const;
+    return entry;
+  });
+  const tagged = Object.fromEntries(entries);
+  return tagged;
+};
+
+const getSharedAppendix = (ctx: UpdateContext, fresh: Appendix) => {
+  const defaultEcosystem = ctx.options.nativeProject ? "PyPI" : "npm";
+  const ecosystem = ctx.options.appendixEcosystem ?? defaultEcosystem;
+  const existing = ctx.config?.pastoralist?.appendix ?? {};
+  const { selected, foreign } = partitionEcosystemAppendix(existing, ecosystem);
+  const refreshed = carryExistingLedgers(fresh, normalizeAppendix(selected));
+  const appendix = tagAppendix(refreshed, ecosystem);
+  const result = { appendix, foreignAppendix: foreign };
+  return result;
+};
+
+const refreshEcosystemAppendix = (ctx: UpdateContext, fresh: Appendix) => {
+  if (hasSharedAppendix(ctx)) {
+    const shared = getSharedAppendix(ctx, fresh);
+    return shared;
   }
-  const { selected, foreign } = partitionEcosystemAppendix(existing, fresh, ecosystem);
-  const collision = Object.keys(foreign).find((key) => fresh[key]);
-  if (collision) throw new Error(`Appendix key belongs to another ecosystem: ${collision}`);
-  const refreshed = carryExistingLedgers(fresh, selected);
-  const tagged: Array<[string, AppendixItem]> = Object.entries(refreshed).map(([key, item]) => [
-    key,
-    Object.assign({}, item, { ecosystem }),
-  ]);
-  const appendix = Object.assign({}, foreign, Object.fromEntries(tagged));
-  return appendix;
+  const appendix = carryExistingLedgers(fresh, ctx.existingAppendix ?? {});
+  const result = { appendix };
+  return result;
 };
 
 const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
@@ -409,8 +416,8 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
   const graphContext = resolveDependencyGraphContext(ctx);
   const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext);
   const mergedAppendix = dropSupersededUnusedDependents(mergeWorkspaceAppendix(ctx, rootAppendix));
-  const appendix = refreshEcosystemAppendix(ctx, mergedAppendix);
-  const result = Object.assign({}, ctx, graphContext, { appendix });
+  const refreshed = refreshEcosystemAppendix(ctx, mergedAppendix);
+  const result = Object.assign({}, ctx, graphContext, refreshed);
   return result;
 };
 
@@ -643,7 +650,18 @@ const resolveRemovalDependencyGraph = (ctx: UpdateContext): UpdateContext => {
   return removalDependencyGraph;
 };
 
+const assertNoAppendixCollision = ({ appendix, foreignAppendix }: UpdateContext): void => {
+  const hasSharedEntries = appendix && foreignAppendix;
+  if (!hasSharedEntries) return;
+  const collision = Object.keys(foreignAppendix).find((key) => Object.hasOwn(appendix, key));
+  if (!collision) return;
+  throw new Error(
+    `Appendix key belongs to another ecosystem: ${collision}. Use a separate appendixSource.`,
+  );
+};
+
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
+  assertNoAppendixCollision(ctx);
   const context = resolveRemovalDependencyGraph(ctx);
   const base = createRemovalBaseContext(context);
   if (context.options?.removeUnused !== true) return base;
@@ -665,19 +683,19 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
 };
 
 const writeUpdateContext = (ctx: WritableUpdateContext): void => {
-  const { path, finalAppendix, finalOverrides, overrideSource, options, isTesting } = ctx;
+  const { options, finalAppendix, finalOverrides } = ctx;
   const { appendixTarget } = options;
+  const fields = pick(ctx, [
+    "path",
+    "finalAppendix",
+    "foreignAppendix",
+    "finalOverrides",
+    "overrideSource",
+    "options",
+    "isTesting",
+  ]);
   const config = options.manifestConfig || ctx.config;
-  const result: WriteResultContext = {
-    appendixTarget,
-    path,
-    config,
-    finalAppendix,
-    finalOverrides,
-    overrideSource,
-    options,
-    isTesting,
-  };
+  const result: WriteResultContext = Object.assign({ appendixTarget, config }, fields);
   ctx.log.debug(
     `Writing results: appendix keys=${Object.keys(finalAppendix).length}, override keys=${Object.keys(finalOverrides).length}`,
     "stepWriteResult",
@@ -863,6 +881,16 @@ const clearUpdateCaches = (): void => {
   jsonCache.clear();
 };
 
+const restoreForeignAppendix = (ctx: UpdateContext): UpdateContext => {
+  const { appendix, finalAppendix, foreignAppendix } = ctx;
+  const hasForeignEntries = foreignAppendix && Object.keys(foreignAppendix).length > 0;
+  if (!hasForeignEntries) return ctx;
+  const combined = Object.assign({}, foreignAppendix, appendix);
+  const final = Object.assign({}, foreignAppendix, finalAppendix);
+  const result = Object.assign({}, ctx, { appendix: combined, finalAppendix: final });
+  return result;
+};
+
 const resolveUpdateRoot = (options: Options): string => {
   if (options.root) {
     const updateRoot = options.root;
@@ -916,6 +944,7 @@ const runUpdatePipeline = (initialContext: UpdateContext): UpdateContext =>
     stepRemoveUnused,
     stepWriteResult,
     stepCollectMetrics,
+    restoreForeignAppendix,
   );
 
 const logUpdateComplete = (ctx: UpdateContext): void => {

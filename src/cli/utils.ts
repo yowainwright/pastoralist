@@ -6,7 +6,7 @@ import {
 } from "./diagnostics";
 import { FARMER, SHEEP } from "../constants";
 import type { update } from "../core/update";
-import { findUnusedAppendixEntries, toCompactAppendix } from "../core/appendix/utils";
+import { getUnusedOverrides, resolvePersistedAppendix } from "../core/update/utils";
 import { renderTable } from "../dx";
 import type { OverrideInfo } from "../dx/types";
 import type { AppendixItem, PastoralistJSON, PastoralistResult } from "../types";
@@ -110,17 +110,6 @@ const getAppliedOverrides = (finalOverrides: Record<string, unknown>): Record<st
       .map((key) => [key, finalOverrides[key] as string]),
   );
 
-const getResultAppendix = (
-  updateResult: ReturnType<typeof update>,
-  config: PastoralistJSON | undefined,
-) => {
-  const appendix = updateResult.finalAppendix || {};
-  const useCompact = config?.pastoralist?.compactAppendix === true;
-  if (!useCompact) return appendix;
-  const compact = toCompactAppendix(appendix);
-  return compact;
-};
-
 const hasUpdateChanges = (
   updateResult: ReturnType<typeof update>,
   config: PastoralistJSON | undefined,
@@ -128,8 +117,8 @@ const hasUpdateChanges = (
   const previousAppendix = config?.pastoralist?.appendix || {};
   const previousOverrides =
     updateResult.overrideSource?.overrides || getConfiguredOverrides(config);
-  const appendixChanged =
-    JSON.stringify(getResultAppendix(updateResult, config)) !== JSON.stringify(previousAppendix);
+  const appendix = resolvePersistedAppendix(updateResult, config);
+  const appendixChanged = JSON.stringify(appendix) !== JSON.stringify(previousAppendix);
   const overridesChanged =
     JSON.stringify(updateResult.finalOverrides || {}) !== JSON.stringify(previousOverrides);
   const dependencyChanges = ["dependencies", "devDependencies"].some((field) => {
@@ -159,8 +148,7 @@ export const buildUpdateResult = (
 };
 
 const getUnusedOverrideResult = (updateResult: UpdateContext) => {
-  const finalAppendix = updateResult.finalAppendix || {};
-  const unusedOverrides = findUnusedAppendixEntries(finalAppendix, updateResult.rootDeps);
+  const unusedOverrides = getUnusedOverrides(updateResult);
   const hasUnusedOverrides = unusedOverrides.length > 0;
   const { length: unusedOverrideCount } = unusedOverrides;
   const result = { hasUnusedOverrides, unusedOverrideCount, unusedOverrides };

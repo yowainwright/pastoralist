@@ -5477,6 +5477,16 @@ test("verifyRemovals - ignores stale appendix-only entries", async () => {
   assert.strictEqual(checker.checkSecurity.mock.callCount(), 0);
 });
 
+test("verifyRemovals - ignores Python entries for npm overrides", async () => {
+  const config = createConfig();
+  const entry = config.pastoralist?.appendix?.["unused-pkg@1.0.0"];
+  assert.ok(entry);
+  entry.ecosystem = "PyPI";
+  const checker = createChecker([[], []]);
+  const comparison = await verifyTestRemovals(config, checker);
+  assert.strictEqual(comparison, undefined);
+});
+
 test("verifyRemovals - respects existing skipRemovalKeys", async () => {
   const config = createConfig({ skipped: "1.0.0", removable: "1.0.0" });
   const checker = createChecker([[]]);

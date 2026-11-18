@@ -235,6 +235,24 @@ describe("github action", () => {
   });
 });
 
+test("passes the JavaScript manifest to the CLI at the configured root", () => {
+  const action = readAction();
+  const command = action.match(/ {8}(cmd=\(pastoralist[\s\S]*?) {8}echo "Running Pastoralist/);
+  assert.ok(command);
+  const script = command[1] + '\nprintf "%s\\n" "${cmd[@]}"';
+  const env = { BASH_ENV: "/dev/null", INPUT_MODE: "check", INPUT_ROOT_DIR: "mixed-project" };
+  const output = execFileSync("bash", ["-e", "-c", script], { encoding: "utf8", env });
+  const args = output.trim().split("\n");
+  assert.deepStrictEqual(args.slice(0, 5), [
+    "pastoralist",
+    "--outputFormat",
+    "json",
+    "--path",
+    "package.json",
+  ]);
+  assert.deepStrictEqual(args.slice(-2), ["--root", "mixed-project"]);
+});
+
 test("allows an updated auto-fix PR through the security gate", () => {
   const args = { mode: "pr", autoFix: "true", updated: "true", securityFixesApplied: "true" };
   const result = runSecurityGate(readAction(), args);

@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import { findUnusedAppendixEntries } from "../core/appendix/utils";
+import { getUnusedOverrides } from "../core/update/utils";
 import type { DependencyDiagnostic, TrackedDependencies } from "../core/dep-tracker";
 import type { Options, RemovalVerification } from "../types";
 import { pluralSuffix } from "../utils";
@@ -63,7 +63,7 @@ export const renderUnusedOverrideNotice = (
   updateContext: UpdateContext,
   options: Options,
 ): void => {
-  const unusedEntries = findUnusedAppendixEntries(updateContext.finalAppendix ?? {});
+  const unusedEntries = getUnusedOverrides(updateContext);
   const shouldSuggestRemoval = unusedEntries.length > 0 && !options.removeUnused;
   if (!shouldSuggestRemoval) return;
   const count = unusedEntries.length;

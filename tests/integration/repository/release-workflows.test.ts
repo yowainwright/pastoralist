@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { findReleaseRange, reviewCommit } from "../../../scripts/release/preflight";
 
 const cases = [
   {
@@ -91,6 +92,35 @@ const cases = [
 
       assert.ok(validationIndex > -1);
       assert.ok(publishIndex > validationIndex);
+    },
+  },
+  {
+    name: "holds npm approval behind the Sourcery preflight and packed uv smoke",
+    run: () => {
+      const workflow = readWorkflow("publish.yml");
+      const [buildJobs, publishing] = workflow.split("  publish:");
+      const [publishJob] = publishing.split("  homebrew:");
+      assertContainsText(buildJobs, "workflow_dispatch:");
+      assertContainsText(buildJobs, "scripts/release/preflight.ts");
+      assertContainsText(buildJobs, "github.event_name == 'push'");
+      assertContainsText(buildJobs, "if (context.eventName === 'push') core.setFailed(message);");
+      assertContainsText(buildJobs, "npm install --global --ignore-scripts /app/candidate.tgz");
+      assertContainsText(buildJobs, "PASTORALIST_CLI=pastoralist bash /app/test.sh");
+      assertExcludesText(buildJobs, "id-token: write");
+      assertContainsText(publishJob, "needs: [release-preflight, pack-release]");
+      assertContainsText(publishJob, "environment: npm-publish");
+      assertContainsText(publishJob, "id-token: write");
+      assertContainsText(publishJob, "actions/download-artifact@");
+      assertContainsText(publishJob, 'npm publish "$TARBALL"');
+    },
+  },
+  {
+    name: "runs the installed uv smoke for published versions and excludes preflight runs",
+    run: () => {
+      const workflow = readWorkflow("test-release.yml");
+      assertContainsText(workflow, "github.event.workflow_run.event == 'push'");
+      assertContainsText(workflow, 'npm install --global --ignore-scripts "pastoralist@$VERSION"');
+      assertContainsText(workflow, "PASTORALIST_CLI=pastoralist bash /app/test.sh");
     },
   },
   {
@@ -183,4 +213,95 @@ const readWorkflow = (name: string): string =>
 
 describe("release workflows", () => {
   cases.forEach(({ name, run }) => test(name, run));
+});
+
+const main = { ref: "main" };
+const featureHead = { sha: "feature-head" };
+const sourcery = { id: 48477, slug: "sourcery-ai" };
+const featurePr = {
+  number: 695,
+  html_url: "https://github.com/yowainwright/pastoralist/pull/695",
+  merge_commit_sha: "feature-squash",
+  merged_at: "2026-11-18T00:00:00Z",
+  base: main,
+  head: featureHead,
+};
+const successCheck = {
+  name: "Sourcery review",
+  app: sourcery,
+  id: 1,
+  head_sha: "feature-head",
+  status: "completed",
+  conclusion: "success",
+};
+
+const published = (tag: string) => Promise.resolve(tag !== "v1.14.2");
+
+test("release preflight uses the previous published tag on the first-parent history", async () => {
+  const history = ["new-main", "version-squash", "feature-squash", "unpublished", "baseline"];
+  const tags = new Map([
+    ["version-squash", ["v1.14.3"]],
+    ["unpublished", ["v1.14.2"]],
+    ["baseline", ["v1.14.1"]],
+    ["side-branch", ["v1.14.0"]],
+  ]);
+  const range = await findReleaseRange("version-squash", { history, tags, published });
+  const commits = ["unpublished", "feature-squash", "version-squash"];
+  assert.deepEqual(range, {
+    baseline: "v1.14.1",
+    commits,
+  });
+  await assert.rejects(
+    findReleaseRange("side-branch", { history, tags, published }),
+    /first.parent/,
+  );
+});
+
+const otherApp = { id: 99, slug: "other" };
+const otherAppCheck = Object.assign({}, successCheck, { app: otherApp });
+const oldHeadCheck = Object.assign({}, successCheck, { head_sha: "old-head" });
+const skippedCheck = Object.assign({}, successCheck, { id: 2, conclusion: "skipped" });
+const pendingCheck = Object.assign({}, successCheck, { id: 2, status: "queued", conclusion: null });
+const neutralCheck = Object.assign({}, successCheck, { conclusion: "neutral" });
+const reviewCases = [
+  ["accepts the installed app's check on the squash PR head", [successCheck], "success"],
+  ["ignores a matching check name from another app", [otherAppCheck], "missing"],
+  ["ignores a successful check on an old PR head", [oldHeadCheck], "missing"],
+  ["rejects a newer skipped check after success", [skippedCheck, successCheck], "skipped"],
+  ["rejects a newer pending check", [successCheck, pendingCheck], "not completed (queued)"],
+  ["rejects neutral checks", [neutralCheck], "neutral"],
+  ["rejects duplicate latest checks", [successCheck, successCheck], "ambiguous check runs"],
+] as const;
+
+reviewCases.forEach(([name, checks, conclusion]) => {
+  test(`release preflight ${name}`, async () => {
+    const pullRequests = () => Promise.resolve([featurePr]);
+    const checkRuns = (head: string) => {
+      assert.equal(head, featurePr.head.sha);
+      const result = Promise.resolve(checks);
+      return result;
+    };
+    const result = await reviewCommit(featurePr.merge_commit_sha, { pullRequests, checkRuns });
+    assert.equal(result.conclusion, conclusion);
+    assert.equal(result.pullUrl, featurePr.html_url);
+  });
+});
+
+test("release preflight keeps a skipped feature review visible beside a green version PR", async () => {
+  const versionHead = { sha: "version-head" };
+  const versionPr = Object.assign({}, featurePr, {
+    merge_commit_sha: "version-squash",
+    head: versionHead,
+  });
+  const pullRequests = () => Promise.resolve([featurePr, versionPr]);
+  const checkRuns = (head: string) => {
+    const isVersionHead = head === versionHead.sha;
+    const conclusion = isVersionHead ? "success" : "skipped";
+    const check = Object.assign({}, successCheck, { head_sha: head, conclusion });
+    const checks = Promise.resolve([check]);
+    return checks;
+  };
+  const feature = await reviewCommit(featurePr.merge_commit_sha, { pullRequests, checkRuns });
+  const version = await reviewCommit(versionPr.merge_commit_sha, { pullRequests, checkRuns });
+  assert.deepEqual([feature.conclusion, version.conclusion], ["skipped", "success"]);
 });

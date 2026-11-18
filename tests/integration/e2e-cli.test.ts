@@ -178,9 +178,52 @@ test("uv: missing lock evidence keeps overrides with unknown usage", async (t) =
   const result = await runUvFixture(t, fixture.root);
   assert.strictEqual(result.success, true, result.errors.join("\n"));
   assert.strictEqual(result.unusedOverrideCount, 0);
+  const { lockPath: lockfile } = fixture;
+  assert.deepEqual(result.dependencyDiagnostics, [{ lockfile, reason: "missing-lockfile" }]);
   const config = JSON.parse(readFileSync(fixture.configPath, "utf8"));
   assert.match(config.appendix["urllib3@==2.8.0"].dependents["uv-fixture"], /usage unknown/);
   assert.strictEqual(readFileSync(fixture.path, "utf8"), fixture.manifest);
+});
+
+test("uv: explicit Python input needs uv evidence beside that manifest", async (t) => {
+  const fixture = createUvFixture();
+  const parentLock = join(TEST_DIR, "uv.lock");
+  const manifest = '[project]\nname = "pdm-fixture"\n[tool.pdm]\ndistribution = false\n';
+  writeFileSync(parentLock, fixture.lock);
+  writeFileSync(fixture.path, manifest);
+  rmSync(fixture.lockPath);
+  const { path } = fixture;
+  const result = await runUvFixture(t, TEST_DIR, { path });
+  assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /unsupported Python package manager.*uv/i);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+});
+
+test("uv: malformed neighboring Python input still allows JavaScript discovery", async (t) => {
+  const fixture = createUvFixture();
+  const packagePath = join(fixture.root, "package.json");
+  const packageJson = '{"name":"mixed","version":"1.0.0","overrides":{"alpha":"1.0.1"}}';
+  writeFileSync(packagePath, packageJson);
+  writeFileSync(fixture.path, "[project");
+  rmSync(fixture.lockPath);
+  const automatic = await runUvFixture(t, fixture.root, { dryRun: true });
+  assert.strictEqual(automatic.success, true, automatic.errors.join("\n"));
+  assert.deepEqual(automatic.appliedOverrides, { alpha: "1.0.1" });
+  assert.strictEqual(automatic.dependencyDiagnostics, undefined);
+  const { path } = fixture;
+  const explicit = await runUvFixture(t, fixture.root, { path });
+  assert.strictEqual(explicit.success, false);
+  assert.match(explicit.errors.join("\n"), /TOML|parse/i);
+  assert.strictEqual(existsSync(fixture.configPath), false);
+});
+
+test("uv: JSON reports an unverified snapshot without writing during a dry run", async (t) => {
+  const fixture = createUvFixture();
+  const result = await runUvFixture(t, fixture.root, { dryRun: true, outputFormat: "json" });
+  assert.strictEqual(result.overrideCount, 1);
+  const { lockPath: lockfile } = fixture;
+  assert.deepEqual(result.dependencyDiagnostics, [{ lockfile, reason: "unverified-lockfile" }]);
+  assert.strictEqual(existsSync(fixture.configPath), false);
 });
 
 test("uv: mixed ecosystems require explicit manifest selection", async (t) => {
@@ -501,6 +544,11 @@ invalidUvLocks.forEach((lock) => {
     const result = await runUvFixture(t, fixture.root);
     assert.strictEqual(result.success, true, result.errors.join("\n"));
     assert.strictEqual(result.unusedOverrideCount, 0);
+    const reason = lock.includes("package = []")
+      ? "unverified-lockfile"
+      : "invalid-or-unsupported-lockfile";
+    const { lockPath: lockfile } = fixture;
+    assert.deepEqual(result.dependencyDiagnostics, [{ lockfile, reason }]);
     const config = JSON.parse(readFileSync(fixture.configPath, "utf8"));
     assert.match(config.appendix["urllib3@==2.8.0"].dependents["uv-fixture"], /usage unknown/);
     assert.strictEqual(readFileSync(fixture.lockPath, "utf8"), lock);
@@ -560,6 +608,7 @@ beforeEach(() => {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
   mkdirSync(TEST_DIR, { recursive: true });
+  packageJSON.forceClearCache();
   packageJSON.clearDependencyTreeCache();
   packageJSON.clearDependencyGraphCache();
   clearConfigCache();

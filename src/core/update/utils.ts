@@ -12,7 +12,7 @@ import { resolveJSON } from "../package";
 import type { UpdateContext } from "./types";
 import { findPackageJsonFiles, updatePackageJSON } from "../package";
 import { writeOverrideSource } from "../overrides";
-import { toCompactAppendix } from "../appendix/utils";
+import { findUnusedAppendixEntries, toCompactAppendix } from "../appendix/utils";
 import { writeTargetAppendix } from "../appendix";
 import { clearConfigCache } from "../../config";
 import { resolveWorkspaceManifestPaths } from "../workspaces";
@@ -27,7 +27,7 @@ import type {
 import type { ProcessingModeArguments } from "./types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../observability";
-import { pick } from "../../utils";
+import { omit, pick } from "../../utils";
 
 export { WORKSPACE_MODES } from "./constants";
 
@@ -156,16 +156,31 @@ export const findPackageFiles = (
   return packageFiles;
 };
 
-const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): PersistedAppendix => {
-  if (!useCompact) return finalAppendix;
-  const appendix = toCompactAppendix(finalAppendix);
+type AppendixResult = Pick<UpdateContext, "finalAppendix" | "foreignAppendix">;
+
+const getSelectedAppendix = ({ finalAppendix = {}, foreignAppendix }: AppendixResult): Appendix => {
+  if (!foreignAppendix) return finalAppendix;
+  const foreignKeys = Object.keys(foreignAppendix);
+  const selected = omit(finalAppendix, foreignKeys);
+  return selected;
+};
+
+export const resolvePersistedAppendix = (
+  ctx: AppendixResult,
+  config: PastoralistJSON | undefined,
+): PersistedAppendix => {
+  const selected = getSelectedAppendix(ctx);
+  const useCompact = config?.pastoralist?.compactAppendix === true;
+  const formatted = useCompact ? toCompactAppendix(selected) : selected;
+  if (!ctx.foreignAppendix) return formatted;
+  const appendix = Object.assign({}, ctx.foreignAppendix, formatted);
   return appendix;
 };
 
-const usesCompactAppendix = (ctx: WriteResultContext): boolean => {
-  const outputConfig = ctx.options?.config ?? ctx.config;
-  const useCompact = outputConfig?.pastoralist?.compactAppendix === true;
-  return useCompact;
+export const getUnusedOverrides = (ctx: UpdateContext): string[] => {
+  const selected = getSelectedAppendix(ctx);
+  const unused = findUnusedAppendixEntries(selected, ctx.rootDeps);
+  return unused;
 };
 
 const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): void => {
@@ -191,8 +206,8 @@ const buildPackageUpdate = (
 
 export const writeResult = (ctx: WriteResultContext): void => {
   const isJsonOutput = ctx.options?.outputFormat === "json";
-  const useCompact = usesCompactAppendix(ctx);
-  const appendix = resolveAppendix(ctx.finalAppendix, useCompact);
+  const outputConfig = ctx.options?.config ?? ctx.config;
+  const appendix = resolvePersistedAppendix(ctx, outputConfig);
   const packageAppendix = ctx.appendixTarget ? undefined : appendix;
 
   if (ctx.options?.nativeProject) {

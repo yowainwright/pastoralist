@@ -18,8 +18,7 @@ override.
 ### Basic Check
 
 ```bash
-# Check for vulnerabilities and display a report
-pastoralist --checkSecurity --dry-run
+pastoralist --checkSecurity --dry-run # Scans for vulnerabilities and previews changes.
 ```
 
 Applying fixes requires `--interactive`, `--forceSecurityRefactor`, or the
@@ -38,22 +37,19 @@ and rescan after applying fixes.
 ### Auto Fix
 
 ```bash
-# Automatically apply security fixes
-pastoralist --checkSecurity --forceSecurityRefactor
+pastoralist --checkSecurity --forceSecurityRefactor --strict # Applies available transitive fixes automatically and fails if vulnerabilities remain or a provider denies access.
 ```
 
 ### Interactive
 
 ```bash
-# Choose which fixes to apply
-pastoralist --checkSecurity --interactive
+pastoralist --checkSecurity --interactive # Scans for vulnerabilities and asks which fixes to apply.
 ```
 
 ### Workspaces
 
 ```bash
-# Include workspace packages in the scan
-pastoralist --checkSecurity --hasWorkspaceSecurityChecks
+pastoralist --checkSecurity --hasWorkspaceSecurityChecks # Scans root and workspace dependencies for vulnerabilities.
 ```
 
 <a

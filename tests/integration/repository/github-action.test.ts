@@ -235,6 +235,37 @@ describe("github action", () => {
   });
 });
 
+const getActionArgs = (root: string) => {
+  const action = readAction();
+  const command = action.match(/ {8}(cmd=\(pastoralist[\s\S]*?) {8}echo "Running Pastoralist/);
+  assert.ok(command);
+  const script = command[1] + '\nprintf "%s\\n" "${cmd[@]}"';
+  const env = { BASH_ENV: "/dev/null", INPUT_MODE: "check", INPUT_ROOT_DIR: root };
+  const output = execFileSync("bash", ["-e", "-c", script], { encoding: "utf8", env });
+  const args = output.trim().split("\n");
+  return args;
+};
+
+test("passes the JavaScript manifest to the CLI at the configured root", () => {
+  const root = "tests/e2e/fixtures/pnpm-yaml";
+  const args = getActionArgs(root);
+  assert.deepStrictEqual(args.slice(0, 5), [
+    "pastoralist",
+    "--outputFormat",
+    "json",
+    "--path",
+    "package.json",
+  ]);
+  assert.deepStrictEqual(args.slice(-2), ["--root", root]);
+});
+
+test("allows uv manifest discovery at the configured root", () => {
+  const root = "tests/e2e/fixtures/uv";
+  const args = getActionArgs(root);
+  assert.ok(!args.includes("--path"));
+  assert.deepStrictEqual(args.slice(-2), ["--root", root]);
+});
+
 test("allows an updated auto-fix PR through the security gate", () => {
   const args = { mode: "pr", autoFix: "true", updated: "true", securityFixesApplied: "true" };
   const result = runSecurityGate(readAction(), args);

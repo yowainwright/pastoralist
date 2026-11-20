@@ -1,4 +1,10 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  redirect,
+} from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { DocsLayout } from "./layouts/DocsLayout";
 import { HomeLayout } from "./layouts/RootLayout";
@@ -26,6 +32,12 @@ const indexRoute = createRoute({
 const docsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/$slug",
+  beforeLoad: ({ params, location }) => {
+    if (params.slug !== "onboarding") return;
+    const setup = { slug: "setup" };
+    const { search, hash } = location;
+    throw redirect({ to: "/docs/$slug/", params: setup, search, hash, replace: true });
+  },
   loader: ({ params }) => getDocHeadings(params.slug),
   component: DocsRoute,
 });

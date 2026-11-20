@@ -109,6 +109,7 @@ export interface UpdateContext {
   missingInRoot?: string[];
   mode?: ProcessingMode;
   existingAppendix?: Appendix;
+  foreignAppendix?: Appendix;
   depPaths?: string[] | null;
   appendix?: Appendix;
   workspaceAppendix?: Appendix;
@@ -142,6 +143,7 @@ export interface WriteResultContext {
   path: string;
   config: PastoralistJSON;
   finalAppendix: Appendix;
+  foreignAppendix?: Appendix;
   finalOverrides: OverridesType;
   overrideSource?: OverrideSource;
   options: Pick<Options, "dryRun" | "outputFormat" | "nativeProject" | "config">;

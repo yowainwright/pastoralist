@@ -15,14 +15,15 @@
 [socket-badge]: https://badge.socket.dev/npm/package/pastoralist/latest
 [socket-package]: https://socket.dev/npm/package/pastoralist
 
-Pastoralist keeps projects more secure while maintaining dependency overrides.
+Pastoralist keeps projects more secure while maintaining dependency overrides with clarity.
 
-It tracks each override in an appendix: which packages depend on it, when it
-was first recorded, and whether it can be removed.
+It tracks each override in an appendix: which packages depend on the override, when the overrides
+was first added to overrides, and if it can be removed.
 
-Packages you install bring dependencies of their own. Overrides let you choose
-a different version or replacement package—for example, to address a security
-issue.
+Packages you install bring dependencies of their own. 
+Overrides let you set a different version of a package—for example, to address a security issue.
+
+---
 
 ## Override Tracking
 
@@ -51,20 +52,11 @@ With an existing `qs` override, running `pastoralist` adds this record:
  }
 ```
 
-This example uses `express → qs`. The dependents and date are generated;
-the versions shown are fixture inputs.
+---
 
 ## Quick Start
 
-Install the global CLI with npm or Homebrew:
-
-```sh
-npm install --global pastoralist
-# or
-brew install yowainwright/tap/pastoralist
-```
-
-For a project, install it as a dev dependency:
+Install Pastoralist as a dev dependency and run it from your project root.
 
 ```sh
 npm install pastoralist --save-dev
@@ -77,49 +69,25 @@ npx pastoralist
 Install the bundled agent skill with `npx pastoralist init agent-skill`.
 Use `npx pastoralist --setup-hook` to add it to `postinstall`.
 
-See the [docs](https://jeffry.in/pastoralist/docs/introduction) for setup,
-configuration, workspaces, security, and interactive examples.
+See the [setup guide](https://jeffry.in/pastoralist/docs/setup/) for install hooks and workspace settings.
 
-## Python: uv override tracking
-
-In a standalone uv project, run `pastoralist` to track existing
-[`tool.uv.override-dependencies`](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides).
-Pastoralist detects `pyproject.toml` with `uv.lock` or uv settings and writes its
-appendix to `.pastoralistrc`. No `package.json` is required. The Python manifest
-and lockfile remain unchanged; `--dry-run` previews the appendix update.
-
-When both Python and JavaScript project files are present, select
-`--path pyproject.toml` or `--path package.json`. Existing entries for the
-unselected ecosystem remain in the appendix. JavaScript configuration files
-must set `appendixSource` to a separate JSON file when tracking uv overrides.
-
-This first slice supports global string overrides, one per normalized package
-name. Dependency paths come from the lockfile snapshot; absent paths remain
-unknown until native verification is available. Workspaces, scoped overrides,
-security checks, automatic fixes, and removal are not supported yet.
+---
 
 ## CLI API
 
-The direct commands below assume `pastoralist` is available from a project
-script, global npm install, or Homebrew install. Use `npx pastoralist ...` for
-one-off project setup.
+Use `npx pastoralist` with a project install, or install the CLI globally with
+`npm install --global pastoralist`. See the [CLI reference](https://jeffry.in/pastoralist/docs/api-reference/#cli) for all commands and options.
 
 #### `pastoralist`
 
-> Type: **`command`**
-
-Updates the target package manifest's override appendix. It reads npm
-`overrides`, pnpm `pnpm.overrides` or `pnpm-workspace.yaml` (pnpm 11+),
-Yarn `resolutions`, and Bun `overrides`.
+In an npm project, reads `overrides` from `package.json` and updates the appendix.
+Use `--dry-run` to preview the changes.
 
 ```sh
-pastoralist
 pastoralist --dry-run
 ```
 
 #### `--help` and `--version`
-
-> Type: **`boolean options`**
 
 Prints CLI help or the installed package version.
 
@@ -128,12 +96,7 @@ pastoralist --help
 pastoralist --version # -v
 ```
 
-Check the installed version and available commands before adding Pastoralist
-to scripts or CI.
-
 #### `--styleguide`
-
-> Type: **`boolean option`**
 
 Opens an interactive radio menu for exploring the Pastoralist DX components
 without reading or changing project configuration. Use the arrow keys and Enter
@@ -146,10 +109,7 @@ pastoralist --styleguide
 
 #### `pastoralist doctor`
 
-> Type: **`command`**
-
-Runs a read-only health check. Internally this enables `dryRun: true` and
-`summary: true`.
+Previews the appendix update and prints a summary.
 
 ```sh
 pastoralist doctor
@@ -157,8 +117,6 @@ pastoralist doctor --outputFormat json
 ```
 
 #### `pastoralist init`
-
-> Type: **`command`**
 
 Starts the config wizard. The wizard can save config to `package.json` or an
 external config file, configure workspace paths, and set up security scanning.
@@ -169,8 +127,6 @@ pastoralist init
 
 #### `pastoralist init agent-skill`
 
-> Type: **`command`**
-
 Installs the bundled Pastoralist agent skill into
 `.agents/skills/pastoralist`. Existing unmanaged skill files are preserved.
 
@@ -180,10 +136,7 @@ pastoralist init agent-skill
 
 #### `--path`, `-p`
 
-> Type: **`string option`**
-> Default: **`"package.json"`**
-
-Selects the package manifest Pastoralist should read and update.
+Pastoralist detects the project manifest by default. Use `--path` to select one.
 
 ```sh
 pastoralist --path packages/app/package.json # -p packages/app/package.json
@@ -223,8 +176,6 @@ pastoralist --ignore "**/node_modules/**"
 
 #### `--debug`
 
-> Type: **`boolean option`**
-
 Enables debug logging for CLI execution.
 
 ```sh
@@ -232,8 +183,6 @@ pastoralist --debug
 ```
 
 #### `--dry-run`
-
-> Type: **`boolean option`**
 
 Previews changes to project files. Security providers may still write caches.
 
@@ -264,8 +213,6 @@ JSON output includes result status, findings, applied overrides, and metrics.
 
 #### `--summary`
 
-> Type: **`boolean option`**
-
 Prints the metrics table after a text-mode run.
 
 ```sh
@@ -273,8 +220,6 @@ pastoralist --summary
 ```
 
 #### `--quiet`, `-q`
-
-> Type: **`boolean option`**
 
 Suppresses normal text output for CI. Security findings make the command exit
 with code `1`; clean security checks exit with code `0`.
@@ -284,8 +229,6 @@ pastoralist --quiet --checkSecurity # -q --checkSecurity
 ```
 
 #### `--setup-hook`
-
-> Type: **`boolean option`**
 
 Adds `pastoralist` to the target manifest's `postinstall` script. Existing
 postinstall scripts are appended with `&& pastoralist`.
@@ -307,8 +250,6 @@ Keeps the appendix current after package installs:
 
 #### `--remove-unused`
 
-> Type: **`boolean option`**
-
 Removes verified unused override entries from the active override source and
 appendix. Preview first with `--dry-run`.
 
@@ -317,8 +258,6 @@ pastoralist --remove-unused
 ```
 
 #### `--checkSecurity`
-
-> Type: **`boolean option`**
 
 Runs vulnerability scanning before the appendix update. Fixable security
 findings can add override data and security ledger fields.
@@ -354,19 +293,10 @@ pastoralist --checkSecurity --securityProvider github --securityProviderToken "$
 
 #### Security Mode Flags
 
-> Type: **`boolean options`**
-
-Controls how security findings are handled: `--interactive` prompts for fixes,
-`--forceSecurityRefactor` applies available transitive fixes without prompting,
-`--hasWorkspaceSecurityChecks` includes workspace packages, `--promptForReasons`
-asks for manual ledger reasons, and `--strict` fails on unresolved vulnerabilities
-or provider permission errors.
-
 ```sh
-pastoralist --checkSecurity --interactive
-pastoralist --checkSecurity --forceSecurityRefactor --strict
-pastoralist --checkSecurity --hasWorkspaceSecurityChecks
-pastoralist --promptForReasons
+pastoralist --checkSecurity --interactive # Scans for vulnerabilities and asks which fixes to apply.
+pastoralist --checkSecurity --forceSecurityRefactor --strict # Applies available transitive fixes automatically and fails if vulnerabilities remain or a provider denies access.
+pastoralist --checkSecurity --hasWorkspaceSecurityChecks # Scans root and workspace dependencies for vulnerabilities.
 ```
 
 Direct dependency updates require interactive approval. Forced transitive fixes
@@ -388,8 +318,53 @@ pastoralist --checkSecurity --no-cache
 pastoralist --checkSecurity --refresh-cache
 ```
 
-Use these to avoid repeated provider calls, shorten cache windows, or force a
-fresh advisory lookup.
+## Node.js API
+
+To preview the appendix from a script, pass your parsed manifest and its path to `update()`.
+
+```js
+import { resolveJSON, update } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+if (!config) throw new Error(`Could not read ${path}`);
+
+const { finalAppendix } = update({ config, path, dryRun: true, outputFormat: "json" });
+process.stdout.write(JSON.stringify(finalAppendix ?? {}, null, 2) + "\n");
+```
+
+See the [Node.js API reference](https://jeffry.in/pastoralist/docs/api-reference/#nodejs-api) for more options and exports.
+
+## Other Package Managers
+
+| Package manager | Install in your project      | Where Pastoralist reads overrides                                                                      |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| pnpm            | `pnpm add -D pastoralist`    | `overrides` in `pnpm-workspace.yaml` (the default for pnpm 11+), or `pnpm.overrides` in `package.json` |
+| Yarn            | `yarn add --dev pastoralist` | `resolutions` in `package.json`                                                                        |
+| Bun             | `bun add --dev pastoralist`  | `overrides` in `package.json`                                                                          |
+
+For a standalone CLI, Homebrew users can run `brew install yowainwright/tap/pastoralist`.
+
+### uv
+
+In a standalone Python project, Pastoralist reads [uv overrides](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides)
+from `pyproject.toml`. This one pins `urllib3` to version `2.8.0`.
+
+```toml
+[tool.uv]
+override-dependencies = ["urllib3==2.8.0"]
+```
+
+Run `pastoralist --dry-run` to preview the appendix. If `uv.lock` shows that
+`requests` depends on `urllib3`, running `pastoralist` records
+`urllib3 (required by requests)` in `.pastoralistrc`.
+
+If the repo also has a `package.json`, use `pastoralist --path pyproject.toml` to
+track the Python overrides. With a JavaScript config file, set `appendixSource`
+to a separate JSON file for the appendix.
+
+uv tracking supports one global override per package. Workspace and scoped
+overrides, security scanning, automatic fixes, and removal are currently unsupported for uv.
 
 ## Thanks
 

@@ -2,6 +2,7 @@ import { IS_DEBUGGING } from "../../constants";
 import { resolveDependencyTracking } from "./utils";
 import { getProjectDependencyUsage } from "../dep-tracker";
 import type { DependencyGraphContext, RootDependencyContext } from "./types";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type {
   Appendix,
@@ -358,11 +359,17 @@ const mergeWorkspaceAppendix = (ctx: UpdateContext, appendix: Appendix): Appendi
   return mergedAppendix;
 };
 
-const partitionEcosystemAppendix = (existing: Appendix, ecosystem: AppendixItem["ecosystem"]) => {
+const partitionEcosystemAppendix = (
+  existing: Appendix,
+  ecosystem: AppendixItem["ecosystem"],
+  legacyUvEntries: Appendix | undefined,
+) => {
   const selected: Appendix = {};
   const foreign: Appendix = {};
   Object.entries(existing).forEach(([key, item]) => {
-    const isSelected = (item.ecosystem ?? "npm") === ecosystem;
+    const matchesLegacyUv = legacyUvEntries && Object.hasOwn(legacyUvEntries, key);
+    const legacyEcosystem = matchesLegacyUv ? "PyPI" : "npm";
+    const isSelected = (item.ecosystem ?? legacyEcosystem) === ecosystem;
     const target = isSelected ? selected : foreign;
     target[key] = item;
   });
@@ -388,11 +395,28 @@ const tagAppendix = (appendix: Appendix, ecosystem: AppendixItem["ecosystem"]): 
   return tagged;
 };
 
+const getLegacyUvEntries = (ctx: UpdateContext, fresh: Appendix): Appendix | undefined => {
+  const { nativeProject, appendixEcosystem, path, root, appendixTarget } = ctx.options;
+  const usesImplicitNativeEcosystem = nativeProject && !appendixEcosystem;
+  if (!usesImplicitNativeEcosystem) return undefined;
+  const hasTaggedEntries = Object.values(ctx.existingAppendix ?? {}).some((item) => item.ecosystem);
+  if (hasTaggedEntries) return undefined;
+  const manifest = path ?? Object.keys(nativeProject.tracking)[0];
+  const manifestDir = manifest ? dirname(manifest) : root;
+  const ledgerDir = appendixTarget && dirname(appendixTarget.path);
+  const hasJavaScriptManifest = [manifestDir, ledgerDir].some(
+    (dir) => dir && existsSync(resolve(dir, "package.json")),
+  );
+  if (hasJavaScriptManifest) return undefined;
+  return fresh;
+};
+
 const getSharedAppendix = (ctx: UpdateContext, fresh: Appendix) => {
   const defaultEcosystem = ctx.options.nativeProject ? "PyPI" : "npm";
   const ecosystem = ctx.options.appendixEcosystem ?? defaultEcosystem;
   const existing = ctx.config?.pastoralist?.appendix ?? {};
-  const { selected, foreign } = partitionEcosystemAppendix(existing, ecosystem);
+  const legacyUvEntries = getLegacyUvEntries(ctx, fresh);
+  const { selected, foreign } = partitionEcosystemAppendix(existing, ecosystem, legacyUvEntries);
   const refreshed = carryExistingLedgers(fresh, normalizeAppendix(selected));
   const appendix = tagAppendix(refreshed, ecosystem);
   const result = { appendix, foreignAppendix: foreign };
@@ -655,6 +679,11 @@ const assertNoAppendixCollision = ({ appendix, foreignAppendix }: UpdateContext)
   if (!hasSharedEntries) return;
   const collision = Object.keys(foreignAppendix).find((key) => Object.hasOwn(appendix, key));
   if (!collision) return;
+  if (!foreignAppendix[collision].ecosystem) {
+    throw new Error(
+      `Untagged appendix entry ${collision} matches a uv override. Set its ecosystem to "PyPI" if it belongs to uv, or use a separate appendixSource.`,
+    );
+  }
   throw new Error(
     `Appendix key belongs to another ecosystem: ${collision}. Use a separate appendixSource.`,
   );
@@ -885,8 +914,9 @@ const restoreForeignAppendix = (ctx: UpdateContext): UpdateContext => {
   const { appendix, finalAppendix, foreignAppendix } = ctx;
   const hasForeignEntries = foreignAppendix && Object.keys(foreignAppendix).length > 0;
   if (!hasForeignEntries) return ctx;
-  const combined = Object.assign({}, foreignAppendix, appendix);
-  const final = Object.assign({}, foreignAppendix, finalAppendix);
+  const normalized = normalizeAppendix(foreignAppendix);
+  const combined = Object.assign({}, normalized, appendix);
+  const final = Object.assign({}, normalized, finalAppendix);
   const result = Object.assign({}, ctx, { appendix: combined, finalAppendix: final });
   return result;
 };

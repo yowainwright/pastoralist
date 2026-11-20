@@ -480,6 +480,7 @@ test("uv: a collision preserves an untagged npm entry", async (t) => {
   writeFileSync(fixture.configPath, config);
   const result = await runUvFixture(t, fixture.root);
   assert.strictEqual(result.success, false);
+  assert.match(result.errors.join("\n"), /ecosystem.*PyPI/);
   assert.match(result.errors.join("\n"), /separate appendixSource/);
   assert.strictEqual(readFileSync(fixture.configPath, "utf8"), config);
 });

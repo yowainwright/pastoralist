@@ -163,7 +163,10 @@ runs:
             ;;
         esac
 
-        cmd=(pastoralist --outputFormat json --path package.json)
+        cmd=(pastoralist --outputFormat json)
+        if [ -f "${INPUT_ROOT_DIR:-.}/package.json" ]; then
+          cmd+=(--path package.json)
+        fi
 
         append_list_flag() {
           local flag="$1"

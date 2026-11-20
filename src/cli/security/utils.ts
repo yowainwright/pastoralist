@@ -93,9 +93,13 @@ const getRemovableKeys = (
   const appendix = config.pastoralist?.appendix || {};
   const skipKeys = new Set(options.skipRemovalKeys || []);
   const overrideNames = new Set(Object.keys(source.overrides));
-  const removableKeys = findUnusedAppendixEntries(appendix, getRootDependencies(config)).filter(
-    (key) => !skipKeys.has(key) && overrideNames.has(extractPackageNames([key])[0]),
-  );
+  const unusedKeys = findUnusedAppendixEntries(appendix, getRootDependencies(config));
+  const removableKeys = unusedKeys.filter((key) => {
+    const isNpm = appendix[key].ecosystem !== "PyPI";
+    const hasOverride = overrideNames.has(extractPackageNames([key])[0]);
+    const removable = isNpm && hasOverride && !skipKeys.has(key);
+    return removable;
+  });
   return removableKeys;
 };
 

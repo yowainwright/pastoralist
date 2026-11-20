@@ -1,7 +1,7 @@
 import { assertHasProperty } from "../../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { resolve } from "path";
 import { update } from "../../../../src/core/update/index";
@@ -123,6 +123,72 @@ test("update - preserves compact appendix added dates", () => {
   const result = updateFixture({ config, isTesting: true, addedDate: "2025-02-20" });
 
   assert.strictEqual(result.appendix?.["lodash@4.17.21"]?.ledger?.addedDate, "2024-01-15");
+});
+
+const tracking = {};
+const nativeProject = { manager: "uv", tracking, packageCount: 0 } as const;
+
+test("update - migrates matching untagged entries from the native uv API", (t) => {
+  const root = mkdtempSync(resolve(tmpdir(), "legacy-uv-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const targetPath = resolve(root, ".pastoralistrc");
+  const appendixTarget = { path: targetPath };
+  const overrides = { urllib3: "==2.8.0" };
+  const ledger = { addedDate: "2026-11-15", reason: "Pinned for compatibility", keep: true };
+  const entry = { ledger };
+  const unrelated = { addedDate: "2025-01-01" };
+  const appendix = { "urllib3@==2.8.0": entry, "alpha@1.0.1": unrelated };
+  const pastoralist = { appendix };
+  const config = { name: "uv-app", version: "1", overrides, pastoralist };
+  update({ config, nativeProject, appendixTarget });
+  const persisted = JSON.parse(readFileSync(targetPath, "utf8"));
+  const migrated = persisted.appendix["urllib3@==2.8.0"];
+  assert.strictEqual(migrated.ecosystem, "PyPI");
+  assert.deepStrictEqual(migrated.ledger, ledger);
+  assert.deepStrictEqual(persisted.appendix["alpha@1.0.1"], unrelated);
+});
+
+test("update - rejects untagged uv collisions beside a JavaScript manifest", (t) => {
+  const root = mkdtempSync(resolve(tmpdir(), "mixed-uv-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = resolve(root, "pyproject.toml");
+  const overrides = { urllib3: ">=2.8.0" };
+  writeFileSync(resolve(root, "package.json"), JSON.stringify({ overrides }));
+  const entry = { addedDate: "2026-11-15" };
+  const appendix = { "urllib3@>=2.8.0": entry };
+  const pastoralist = { appendix };
+  const config = { name: "uv-app", version: "1", overrides, pastoralist };
+  assert.throws(
+    () => update({ config, nativeProject, path, dryRun: true }),
+    /separate appendixSource/,
+  );
+});
+
+test("update - rejects untagged uv collisions in a shared ledger", () => {
+  const path = resolve(import.meta.dirname, "../../../e2e/fixtures/uv/pyproject.toml");
+  const overrides = { urllib3: ">=2.8.0" };
+  const entry = { addedDate: "2026-11-15" };
+  const npm = { ecosystem: "npm", addedDate: "2026-11-15" } as const;
+  const appendix = { "urllib3@>=2.8.0": entry, "alpha@1.0.1": npm };
+  const pastoralist = { appendix };
+  const config = { name: "uv-app", version: "1", overrides, pastoralist };
+  assert.throws(
+    () => update({ config, nativeProject, path, dryRun: true }),
+    /separate appendixSource/,
+  );
+});
+
+test("update - returns normalized foreign entries while preserving their persisted form", () => {
+  const compact = { addedDate: "2024-01-15", ecosystem: "PyPI" } as const;
+  const appendix = { "urllib3@==2.8.0": compact };
+  const pastoralist = { appendix };
+  const config = { name: "js-app", version: "1", pastoralist };
+  const result = updateFixture({ config, isTesting: true });
+  const ledger = { addedDate: "2024-01-15" };
+  const expected = { ecosystem: "PyPI", ledger };
+  assert.deepStrictEqual(result.appendix?.["urllib3@==2.8.0"], expected);
+  assert.deepStrictEqual(result.finalAppendix?.["urllib3@==2.8.0"], expected);
+  assert.deepStrictEqual(result.foreignAppendix?.["urllib3@==2.8.0"], compact);
 });
 
 const optionsSecurityOverrides5 = { express: "4.18.2" };

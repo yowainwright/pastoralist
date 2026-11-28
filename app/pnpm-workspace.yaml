@@ -4,13 +4,13 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
 minimumReleaseAgeExclude:
-  - daisyui@5.7.20 || 5.7.28 || 5.7.40 || 5.7.46
+  - daisyui@5.7.20 || 5.7.28 || 5.7.40 || 5.7.46 || 5.8.3
   - framer-motion@13.1.1 || 13.4.3
   - motion-dom@13.1.1
   - "@vitejs/plugin-react@6.1.1"
-  - lucide-react@1.35.0 || 1.40.0 || 1.47.0 || 1.48.0
+  - lucide-react@1.35.0 || 1.40.0 || 1.47.0 || 1.48.0 || 1.81.0
   - "@types/react-dom@19.2.7"
-  - vite@8.3.1
+  - vite@8.3.1 || 8.4.0
 overrides:
   "lodash-es": "4.18.1"
   "rehype-katex@7.0.1>katex": "0.19.1"

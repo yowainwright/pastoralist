@@ -5,7 +5,7 @@ description: "Install Pastoralist and keep your override appendix current"
 
 ## Install
 
-Add Pastoralist as a dev dependency:
+<p id="add-project-setup">Install Pastoralist as a dev dependency in your project.</p>
 
 ```bash
 npm install pastoralist --save-dev
@@ -28,21 +28,22 @@ brew install yowainwright/tap/pastoralist
 
 ## Initialize
 
-Preview override tracking:
+<p id="start-read-only">From your project root, preview what Pastoralist would change.</p>
 
 ```bash
 npx pastoralist doctor
 ```
 
-Run Pastoralist to update the appendix, or use the guided setup to save
-workspace and security settings:
+To save workspace and security settings, run guided setup before updating the appendix.
 
 ```bash
-npx pastoralist
-npx pastoralist init
+npx pastoralist init # Opens guided setup for this project.
+npx pastoralist # Updates the override appendix.
 ```
 
-Install the bundled agent skill:
+## Add Agent Setup
+
+Install the bundled skill to give coding agents the project's override tracking commands.
 
 ```bash
 npx pastoralist init agent-skill
@@ -68,16 +69,12 @@ npx pastoralist --setup-hook
 
 ## Verify Changes
 
-Preview the package.json update before writing anything:
+<p id="verify">Preview the changes before applying them locally or in CI.</p>
 
 ```bash
-npx pastoralist --dry-run
-```
-
-Print summary metrics for CI or release checks:
-
-```bash
-npx pastoralist --dry-run --summary
+npx pastoralist --dry-run # Previews the appendix update.
+npx pastoralist --dry-run --summary # Adds a summary of the proposed changes.
+npx pastoralist --dry-run --quiet --checkSecurity --strict # Exits with an error if the security scan fails or finds vulnerabilities.
 ```
 
 Preview unused override removal before applying it:
@@ -86,6 +83,11 @@ Preview unused override removal before applying it:
 npx pastoralist --remove-unused --dry-run
 npx pastoralist --remove-unused
 ```
+
+## Add CI
+
+To check override tracking on pull requests, copy the Basic PR Check workflow
+from the [GitHub Action guide](/docs/github-action) into `.github/workflows/pastoralist.yml`.
 
 ## Common Starting Config
 

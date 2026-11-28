@@ -27,10 +27,10 @@ syntax-highlighted examples, Mermaid diagrams, and theme switching.
 
 | Area          | Count / Detail                             |
 | ------------- | ------------------------------------------ |
-| Docs pages    | 12 MDX pages                               |
-| Static routes | 13 HTML files                              |
+| Docs pages    | 11 MDX pages                               |
+| Static routes | 12 prerendered pages, 1 redirect           |
 | Components    | 40 TSX component files                     |
-| Source size   | 103 TS, TSX, MDX, and CSS source files     |
+| Source size   | 106 TS, TSX, MDX, and CSS files in `src`   |
 | Routes        | `/`, `/docs/$slug`                         |
 | Entry points  | `src/main.tsx`, `src/entry-server.tsx`     |
 | Docs order    | `src/content/constants.ts`                 |

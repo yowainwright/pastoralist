@@ -1,8 +1,20 @@
 import type { DocMeta } from "./types";
 
 const INTRODUCTION_TAGS = ["overview", "dependency overrides", "tracking", "appendix"];
-const SETUP_TAGS = ["installation", "npm", "pnpm", "yarn", "bun", "postinstall"];
-const ONBOARDING_TAGS = ["getting started", "doctor", "agent skill", "init", "ci"];
+const SETUP_TAGS = [
+  "installation",
+  "npm",
+  "pnpm",
+  "yarn",
+  "bun",
+  "postinstall",
+  "onboarding",
+  "getting started",
+  "doctor",
+  "agent skill",
+  "init",
+  "ci",
+];
 const SECURITY_TAGS = ["cve", "vulnerabilities", "osv", "security providers", "best case"];
 const WORKSPACES_TAGS = ["monorepo", "workspace", "depPaths", "package discovery"];
 const ADVANCED_TAGS = ["remove-unused", "patch-package", "nested overrides", "compact appendix"];
@@ -31,12 +43,6 @@ export const DOCS = [
     title: "Setup",
     description: "Install Pastoralist and keep your override appendix current",
     tags: SETUP_TAGS,
-  },
-  {
-    slug: "onboarding",
-    title: "Onboarding",
-    description: "First-run checklist for local use, agent setup, and CI",
-    tags: ONBOARDING_TAGS,
   },
   {
     slug: "security",

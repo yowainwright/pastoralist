@@ -6,11 +6,7 @@ const sidebarItem = (title: string, slug: string) => {
   return item;
 };
 
-const gettingStarted = [
-  sidebarItem("Introduction", "introduction"),
-  sidebarItem("Setup", "setup"),
-  sidebarItem("Onboarding", "onboarding"),
-];
+const gettingStarted = [sidebarItem("Introduction", "introduction"), sidebarItem("Setup", "setup")];
 const features = [
   sidebarItem("Security Scanning", "security"),
   sidebarItem("Workspaces & Monorepos", "workspaces"),

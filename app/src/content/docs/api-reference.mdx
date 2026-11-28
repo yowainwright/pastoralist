@@ -16,7 +16,7 @@ Each command and option below has a direct link. The walkthroughs use fixed fixt
 
 ### `pastoralist`
 
-Run Pastoralist on the current directory's `package.json`.
+Update the override appendix for the project in the current directory.
 
 <ScrollyCode example="tracking" />
 
@@ -39,9 +39,10 @@ summary mode and does not modify `package.json`.
 ### `pastoralist --path <path>`
 
 > Type: **`string`**
-> Default: `"package.json"`
+> Default: auto-detect the project manifest
 
-Run Pastoralist on a specific `package.json` file.
+Select a `package.json` or uv `pyproject.toml`. If the directory contains both
+a JavaScript project and a uv project, pass the path to the one you want to track.
 
 Alias: `-p`.
 
@@ -108,8 +109,7 @@ Alias: `pastoralist --init agent-skill`.
 
 ### `pastoralist --interactive`
 
-Review security fixes interactively. Use this with `--checkSecurity` when you
-want to approve fixes instead of applying everything with `--forceSecurityRefactor`.
+Review security findings and choose which fixes to apply.
 
 ```bash
 npx pastoralist --checkSecurity --interactive
@@ -214,23 +214,16 @@ npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 
 ### `pastoralist --forceSecurityRefactor`
 
-Apply security override fixes without prompting.
+Automatically apply available fixes for transitive dependencies. Direct dependency
+updates require interactive approval.
 
 ```bash
 npx pastoralist --checkSecurity --forceSecurityRefactor
 ```
 
-### `pastoralist --promptForReasons`
-
-Prompt for ledger reasons when Pastoralist adds manual override records.
-
-```bash
-npx pastoralist --promptForReasons
-```
-
 ### `pastoralist --strict`
 
-Fail when a security provider, network request, or API call cannot complete.
+Exit with an error if vulnerabilities remain or the provider cannot complete the scan.
 
 ```bash
 npx pastoralist --checkSecurity --strict
@@ -576,6 +569,22 @@ const log = logger({ file: "my-script.js", isLogging: true });
 
 log.debug("starting action", "method-name", { data: "value" });
 log.error("unexpected error", "method-name", { error: new Error("Example failure") });
+```
+
+## Other Package Managers
+
+| Package manager | Where Pastoralist reads overrides |
+| --- | --- |
+| pnpm | `overrides` in `pnpm-workspace.yaml`, or `pnpm.overrides` in `package.json` |
+| Yarn | `resolutions` in `package.json` |
+| Bun | `overrides` in `package.json` |
+| uv | `tool.uv.override-dependencies` in `pyproject.toml` |
+
+In a standalone uv project, Pastoralist tracks global overrides and uses
+`uv.lock` to identify which packages depend on them.
+
+```bash
+pastoralist --path pyproject.toml --dry-run # Previews the uv override appendix.
 ```
 
 ## Examples

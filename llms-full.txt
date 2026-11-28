@@ -116,7 +116,7 @@ Continue with the [setup guide](/docs/setup), or try a sandbox:
 
 ## Install
 
-Add Pastoralist as a dev dependency:
+<p id="add-project-setup">Install Pastoralist as a dev dependency in your project.</p>
 
 ```bash
 npm install pastoralist --save-dev
@@ -139,21 +139,22 @@ brew install yowainwright/tap/pastoralist
 
 ## Initialize
 
-Preview override tracking:
+<p id="start-read-only">From your project root, preview what Pastoralist would change.</p>
 
 ```bash
 npx pastoralist doctor
 ```
 
-Run Pastoralist to update the appendix, or use the guided setup to save
-workspace and security settings:
+To save workspace and security settings, run guided setup before updating the appendix.
 
 ```bash
-npx pastoralist
-npx pastoralist init
+npx pastoralist init # Opens guided setup for this project.
+npx pastoralist # Updates the override appendix.
 ```
 
-Install the bundled agent skill:
+## Add Agent Setup
+
+Install the bundled skill to give coding agents the project's override tracking commands.
 
 ```bash
 npx pastoralist init agent-skill
@@ -179,16 +180,12 @@ npx pastoralist --setup-hook
 
 ## Verify Changes
 
-Preview the package.json update before writing anything:
+<p id="verify">Preview the changes before applying them locally or in CI.</p>
 
 ```bash
-npx pastoralist --dry-run
-```
-
-Print summary metrics for CI or release checks:
-
-```bash
-npx pastoralist --dry-run --summary
+npx pastoralist --dry-run # Previews the appendix update.
+npx pastoralist --dry-run --summary # Adds a summary of the proposed changes.
+npx pastoralist --dry-run --quiet --checkSecurity --strict # Exits with an error if the security scan fails or finds vulnerabilities.
 ```
 
 Preview unused override removal before applying it:
@@ -197,6 +194,11 @@ Preview unused override removal before applying it:
 npx pastoralist --remove-unused --dry-run
 npx pastoralist --remove-unused
 ```
+
+## Add CI
+
+To check override tracking on pull requests, copy the Basic PR Check workflow
+from the [GitHub Action guide](/docs/github-action) into `.github/workflows/pastoralist.yml`.
 
 ## Common Starting Config
 
@@ -221,84 +223,6 @@ Read [Configuration](/docs/configuration) for all options or
 
 ---
 
-# Onboarding
-
-> First-run checklist for local use, agent setup, and CI
-
-Follow these steps to add Pastoralist to a repo and share the setup with
-contributors and agents.
-
-## Start Read-Only
-
-Check the current project without writing files:
-
-```bash
-npx pastoralist doctor
-```
-
-## Add Project Setup
-
-Install Pastoralist and create the initial config:
-
-```bash
-npm install pastoralist --save-dev
-npx pastoralist init
-```
-
-Update the appendix once the config is in place:
-
-```bash
-npx pastoralist
-```
-
-Keep it current after dependency installs:
-
-```bash
-npx pastoralist --setup-hook
-```
-
-## Add Agent Setup
-
-Install the bundled Pastoralist skill:
-
-```bash
-npx pastoralist init agent-skill
-```
-
-The skill gives agents the commands and override tracking rules for this project.
-Review proposed config and override changes before applying them.
-
-## Add CI
-
-Create `.github/workflows/pastoralist.yml`:
-
-```yaml title=".github/workflows/pastoralist.yml"
-name: Override Check
-on: [pull_request]
-
-jobs:
-  pastoralist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: check
-          check-security: false
-```
-
-## Verify
-
-Use these commands before merging setup changes:
-
-```bash
-npx pastoralist --dry-run
-npx pastoralist --dry-run --summary
-npx pastoralist --dry-run --quiet --checkSecurity --strict
-```
-
----
-
 # Security Vulnerability Detection
 
 > Detect vulnerabilities and select lowest-risk dependency portfolios
@@ -318,8 +242,7 @@ override.
 ### Basic Check
 
 ```bash
-# Check for vulnerabilities and display a report
-pastoralist --checkSecurity --dry-run
+pastoralist --checkSecurity --dry-run # Scans for vulnerabilities and previews changes.
 ```
 
 Applying fixes requires `--interactive`, `--forceSecurityRefactor`, or the
@@ -338,22 +261,19 @@ and rescan after applying fixes.
 ### Auto Fix
 
 ```bash
-# Automatically apply security fixes
-pastoralist --checkSecurity --forceSecurityRefactor
+pastoralist --checkSecurity --forceSecurityRefactor --strict # Applies available transitive fixes automatically and fails if vulnerabilities remain or a provider denies access.
 ```
 
 ### Interactive
 
 ```bash
-# Choose which fixes to apply
-pastoralist --checkSecurity --interactive
+pastoralist --checkSecurity --interactive # Scans for vulnerabilities and asks which fixes to apply.
 ```
 
 ### Workspaces
 
 ```bash
-# Include workspace packages in the scan
-pastoralist --checkSecurity --hasWorkspaceSecurityChecks
+pastoralist --checkSecurity --hasWorkspaceSecurityChecks # Scans root and workspace dependencies for vulnerabilities.
 ```
 
 ## Configuration
@@ -1466,7 +1386,7 @@ Each command and option below has a direct link. The walkthroughs use fixed fixt
 
 ### `pastoralist`
 
-Run Pastoralist on the current directory's `package.json`.
+Update the override appendix for the project in the current directory.
 
 **Track an override** (Command)
 
@@ -1545,9 +1465,10 @@ The report shows one override and no unused entries. updated is false because th
 ### `pastoralist --path <path>`
 
 > Type: **`string`**
-> Default: `"package.json"`
+> Default: auto-detect the project manifest
 
-Run Pastoralist on a specific `package.json` file.
+Select a `package.json` or uv `pyproject.toml`. If the directory contains both
+a JavaScript project and a uv project, pass the path to the one you want to track.
 
 Alias: `-p`.
 
@@ -1707,8 +1628,7 @@ Alias: `pastoralist --init agent-skill`.
 
 ### `pastoralist --interactive`
 
-Review security fixes interactively. Use this with `--checkSecurity` when you
-want to approve fixes instead of applying everything with `--forceSecurityRefactor`.
+Review security findings and choose which fixes to apply.
 
 ```bash
 npx pastoralist --checkSecurity --interactive
@@ -1927,23 +1847,16 @@ npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 
 ### `pastoralist --forceSecurityRefactor`
 
-Apply security override fixes without prompting.
+Automatically apply available fixes for transitive dependencies. Direct dependency
+updates require interactive approval.
 
 ```bash
 npx pastoralist --checkSecurity --forceSecurityRefactor
 ```
 
-### `pastoralist --promptForReasons`
-
-Prompt for ledger reasons when Pastoralist adds manual override records.
-
-```bash
-npx pastoralist --promptForReasons
-```
-
 ### `pastoralist --strict`
 
-Fail when a security provider, network request, or API call cannot complete.
+Exit with an error if vulnerabilities remain or the provider cannot complete the scan.
 
 ```bash
 npx pastoralist --checkSecurity --strict
@@ -2289,6 +2202,22 @@ const log = logger({ file: "my-script.js", isLogging: true });
 
 log.debug("starting action", "method-name", { data: "value" });
 log.error("unexpected error", "method-name", { error: new Error("Example failure") });
+```
+
+## Other Package Managers
+
+| Package manager | Where Pastoralist reads overrides |
+| --- | --- |
+| pnpm | `overrides` in `pnpm-workspace.yaml`, or `pnpm.overrides` in `package.json` |
+| Yarn | `resolutions` in `package.json` |
+| Bun | `overrides` in `package.json` |
+| uv | `tool.uv.override-dependencies` in `pyproject.toml` |
+
+In a standalone uv project, Pastoralist tracks global overrides and uses
+`uv.lock` to identify which packages depend on them.
+
+```bash
+pastoralist --path pyproject.toml --dry-run # Previews the uv override appendix.
 ```
 
 ## Examples
@@ -2751,8 +2680,7 @@ Run pastoralist regularly:
 
 ### 2. Document Override Reasons
 
-`package.json` does not support comments. Add a ledger `reason` to record
-why an override exists, or provide reasons with `--promptForReasons`:
+Use the ledger’s `reason` field to record why an override exists.
 
 ```json title="package.json" /appendix/
 {

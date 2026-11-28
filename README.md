@@ -20,7 +20,7 @@ Pastoralist keeps projects more secure while maintaining dependency overrides wi
 It tracks each override in an appendix: which packages depend on the override, when the overrides
 was first added to overrides, and if it can be removed.
 
-Packages you install bring dependencies of their own. 
+Packages you install bring dependencies of their own.
 Overrides let you set a different version of a package—for example, to address a security issue.
 
 ---

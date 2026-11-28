@@ -573,12 +573,12 @@ log.error("unexpected error", "method-name", { error: new Error("Example failure
 
 ## Other Package Managers
 
-| Package manager | Where Pastoralist reads overrides |
-| --- | --- |
-| pnpm | `overrides` in `pnpm-workspace.yaml`, or `pnpm.overrides` in `package.json` |
-| Yarn | `resolutions` in `package.json` |
-| Bun | `overrides` in `package.json` |
-| uv | `tool.uv.override-dependencies` in `pyproject.toml` |
+| Package manager | Where Pastoralist reads overrides                                           |
+| --------------- | --------------------------------------------------------------------------- |
+| pnpm            | `overrides` in `pnpm-workspace.yaml`, or `pnpm.overrides` in `package.json` |
+| Yarn            | `resolutions` in `package.json`                                             |
+| Bun             | `overrides` in `package.json`                                               |
+| uv              | `tool.uv.override-dependencies` in `pyproject.toml`                         |
 
 In a standalone uv project, Pastoralist tracks global overrides and uses
 `uv.lock` to identify which packages depend on them.
